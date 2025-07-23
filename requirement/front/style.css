@@ -1,0 +1,30 @@
+body {
+    background-color: white;
+    font-family: sans-serif;
+    padding: 2rem;
+
+}
+
+h1 {
+    text-align: center;
+    color:darkblue;
+}
+
+p {
+    color: black;
+}
+
+.container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.game {
+    background-color: black;
+    width: 624px;
+    height: 351px;
+    p {
+        color: white;
+    }
+}

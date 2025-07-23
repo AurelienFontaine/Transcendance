@@ -1,0 +1,29 @@
+version: "3.8"
+
+services:
+  frontend:
+    container_name: mon-site
+    image: nginx:alpine
+    ports:
+      - "8080:80"
+    volumes:
+      - ./front:/usr/share/nginx/html:ro
+    restart: unless-stopped
+    depends_on:
+      - backend
+    networks:
+      - transcendence
+
+  backend:
+    container_name: backend_container
+    build:
+      context: ./back
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./back/data:/app/data
+    networks:
+      - transcendence
+
+networks:
+  transcendence:
