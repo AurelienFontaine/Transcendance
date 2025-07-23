@@ -17,7 +17,7 @@ async function start(){
     })
     
     fastify.get('/ping', async (request, reply) => {
-        return { pong: 'ok' }
+        return {message: 'pong'}
     })
     
 
