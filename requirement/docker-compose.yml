@@ -7,7 +7,7 @@ services:
     ports:
       - "8080:80"
     volumes:
-      - ./front:/usr/share/nginx/html:ro
+      - ./frontend:/usr/share/nginx/html:ro
     restart: unless-stopped
     depends_on:
       - backend
@@ -17,11 +17,11 @@ services:
   backend:
     container_name: backend_container
     build:
-      context: ./back
+      context: ./backend
     ports:
       - "3000:3000"
     volumes:
-      - ./back/data:/app/data
+      - ./backend/data:/app/data
     networks:
       - transcendence
 
