@@ -14,6 +14,8 @@ RUN npm install
 
 RUN npm install fastify @fastify/cors better-sqlite3
 
+RUN npm install bcrypt
+
 EXPOSE 3000
 
 CMD ["node", "index.js"]

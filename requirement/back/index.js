@@ -1,6 +1,8 @@
 const Fastify = require('fastify');
 const cors = require ('@fastify/cors');
-const db = require('./database.js')
+const bcrypt = require('bcrypt'); //hashage de mdp robuste et bcp utilise + utilise un SALT automatiquement
+const db = require('./database.js');
+const { verify } = require('crypto');
 
 // backend/index.js
 const fastify = Fastify({ logger: true})
@@ -11,7 +13,8 @@ async function start(){
         origin: '*', //dev only (faut pas faire ca)
     });
     
-    // def une route pour GET
+
+    // FONCTION GET de fastify (Comportement different en fonction du path)
     fastify.get('/', async (request, reply) => {
         return {message: 'Hello World from Fastify!'}
     })
@@ -21,15 +24,48 @@ async function start(){
     })
     
 
-    fastify.post('/users', async (request, reply) => {
-    const { name, email } = request.body;
+    // Hashage PASSWORD
+
+    const hashPassword = async (password) => {
+        const saltRounds = 10;
+        const hashed = await bcrypt.hash(password, saltRounds);
+        return hashed;
+    };
+
+    // User creation
+
+    fastify.post('/register', async (request, reply) => {
+    const { name, email, password } = request.body;
     try {
-        const stmt = db.prepare('INSERT INTO users (name, email) VALUES (?, ?)');
-        const info = stmt.run(name, email);
+        const password_hash = await hashPassword(password);
+        const stmt = db.prepare('INSERT INTO users (name, email, password_hash) VALUES (?, ?, ?)');
+        const info = stmt.run(name, email, password_hash);
         return { success: true, id: info.lastInsertRowid };
     } catch (err) {
         return reply.status(400).send({ error: err.message });
     }
+    });
+
+    // User login
+
+    const checkPassword = async (password, hashPassword) => {
+        return await bcrypt.compare(password, hashPassword);
+    };
+
+    fastify.post('/login', async (request, reply) => {
+        const {name, password} = request.body;
+        if (!name || !password) { return reply.status(400).send({ error: 'Nom et mot de passe requis' })}
+
+        const user = db.prepare('SELECT * FROM users WHERE name = ?').get(name);
+
+        if (!user) return reply.status(401).send({ error: 'Utilisateur non trouve'});
+
+        const isValid = await checkPassword(password, user.password_hash);
+        if (isValid) {
+            return { succes: true, message: 'Connexion reussie' };
+        } else {
+            return reply.status(401).send({ error: 'Mot de passe incorrect'});
+        }
     });
 
 
