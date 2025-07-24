@@ -3,7 +3,11 @@ const cors = require ('@fastify/cors');
 const bcrypt = require('bcrypt'); //hashage de mdp robuste et bcp utilise + utilise un SALT automatiquement
 const db = require('./database.js');
 const { verify } = require('crypto');
-
+const { read } = require('fs');
+db.exec('PRAGMA foreign_keys = ON');
+await fastify.register(require('@fastify/jwt'), {
+    secret: 'secret tres secret'
+});
 // backend/index.js
 const fastify = Fastify({ logger: true})
 
@@ -11,6 +15,7 @@ async function start(){
  
     fastify.register(cors, {
         origin: '*', //dev only (faut pas faire ca)
+        // On voudrait mettre origin: ['https://site.com'] pour autoriser les requetes venant uniquement du site
     });
     
 
@@ -62,12 +67,30 @@ async function start(){
 
         const isValid = await checkPassword(password, user.password_hash);
         if (isValid) {
-            return { succes: true, message: 'Connexion reussie' };
+            const token = fastify.jwt.sign({ id: user.id, name: user.name});
+            return { succes: true, message: 'Connexion reussie', token};
         } else {
             return reply.status(401).send({ error: 'Mot de passe incorrect'});
         }
+
+        // Generer un token JWT pour l'authentification
     });
 
+    // Authentification 
+    
+    fastify.get('/me', {
+        preHandler: [fastify.authenticate]
+    }, async (request, reply) => {
+        return { user: request.user };
+    });
+
+    fastify.decorate("authenticate", async function (request, reply) {
+        try {
+            request.user = await request.jwtVerify();
+        } catch (err) {
+            reply.send(err);
+        }
+    });
 
     //Demarrer le serveur
     
