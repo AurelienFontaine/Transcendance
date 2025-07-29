@@ -95,8 +95,41 @@ async function loginUser(event: Event) {
     body: JSON.stringify({name, password}),
   });
   const data = await response.json();
-  alert(JSON.stringify(data));
+  if (data.token) { //gestion du log cote client
+    localStorage.setItem('token', data.token);
+    localStorage.setItem('username', name);
+    alert("Connexion reussie !");
+    updateUIForLoggedInUser(name); //MAJ de l'interface client
+  } else {
+    alert("Erreur : " + (data.error || "Connexion echouee"));
+  }
+  // alert(JSON.stringify(data)); //pour print la data de connexion
 }
+
+function updateUIForLoggedInUser(username: string) {
+  const loginForm = document.getElementById('loginForm');
+  if (loginForm) loginForm.style.display = 'none';
+
+  const welcomemsg = document.createElement('div');
+  welcomemsg.id = 'welcomeMsg';
+  welcomemsg.style.display = 'block';
+  welcomemsg.textContent = `Bienvenue, ${username} !`;
+  
+  const profileContainer = document.getElementById('profilContainer'); // un container ou on veux afficher
+  if (profileContainer) {
+    profileContainer.appendChild(welcomemsg);
+  }
+}
+
+function checkIfLoggedIn() {
+  const token = localStorage.getItem('token');
+  const name = localStorage.getItem('username'); // à stocker lors du login si tu veux
+
+  if (token && name) {
+    updateUIForLoggedInUser(name);
+  }
+}
+
 
 function render() {
   const path = window.location.pathname;
@@ -129,6 +162,7 @@ function render() {
         loginForm.addEventListener('submit', loginUser);
       }
     }
+    checkIfLoggedIn();
   });
 }
 

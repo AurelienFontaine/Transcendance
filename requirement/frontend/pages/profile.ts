@@ -2,6 +2,8 @@ export function renderProfile() {
   return `
     <div class="max-w-md mx-auto mt-8 p-6 bg-gray-800 rounded-lg shadow-md">
       <h1 class="text-3xl font-bold mb-6 text-center">Profil</h1>
+      
+      <div id="welcomeMessage" style="display:none;"></div>
 
       <form id="registerForm" class="mb-8 space-y-4">
         <h2 class="text-xl font-semibold">Inscription</h2>
