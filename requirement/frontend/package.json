@@ -1,0 +1,37 @@
+{
+	"_com0": "fichier de config principal pour node.js, contient les informations necessaire pour decrire, configurer, installer et executer le projet",
+
+	"_com1": "personnalise les characteristiques pour un eventuel affichage ou partage",
+  "name": "frontend",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Node.js on Docker",
+  "author": "First Last <first.last@example.com>",
+  "main": "main.js",
+  "type": "module",
+
+	"_com2" : "scripts d'automatisation du projet",
+  "scripts": {
+	"dev": "vite",
+	"build": "vite build",
+	"preview": "vite preview --port 8080",
+    "build-css": "tailwindcss -i src/styles.css -o src/dist/styles.css --minify",
+	"build-ts": "tsc",
+	"build-all": "npm run build-css && npm run build-ts && npm run build"
+   },
+
+	"_com3": "install les dependance/outils necessaires a l'execution du site",
+
+  "dependencies": {
+    "autoprefixer": "^10.4.13",
+    "postcss": "^8.3.0",
+    "tailwindcss": "^3.4.1"
+  },
+
+	"_com4": "install les dependance/outils necessaires a la compilation des fichiers",
+  
+  "devDependencies": {
+    "typescript": "^5.8.3",
+	"vite": "^7.0.4"
+  }
+}

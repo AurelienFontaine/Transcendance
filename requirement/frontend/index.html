@@ -1,74 +1,23 @@
-<html>
-    <head>
-        <title>Transcendence fini</title>
-        <link rel="stylesheet" href="style.css" />
-        <script>
-            async function pingBackend() {
-            const res = await fetch("http://localhost:3000/ping");
-            const data = await res.json();
-            alert(data.message);                  
-            }
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Pong SPA</title>
+  <script type="module" src="/src/main.ts" defer></script>
 
-            async function createUser(event) {
-                event.preventDefault(); //pour empecher le reload de la page
-                const name = document.getElementById("registerName").value;
-                const email = document.getElementById("registerEmail").value;
-                const password = document.getElementById("registerPassword").value;
 
-                const response = await fetch("http://localhost:3000/register", {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                    },
-                    body: JSON.stringify({name, email, password}),
-                });
-                const data = await response.json();
-                alert(JSON.stringify(data));
-            }
-
-            async function loginUser(event) {
-                event.preventDefault();
-                const name = document.getElementById("loginName").value;
-                const password = document.getElementById("loginPassword").value;
-
-                const response = await fetch ("http://localhost:3000/login", {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                    },
-                    body: JSON.stringify({name, password}),
-                });
-                const data = await response.json();
-                alert(JSON.stringify(data));
-            }
-        </script>
-    </head>
-    <body>
-        <h1>Hello World!</h1>
-        <div class="container">
-            <div>
-                <h2>Inscription</h2>
-                <form onsubmit="createUser(event)">
-                    <label>Nom: <input type="text" id="registerName" required /></label><br />
-                    <label>Email: <input type="email" id="registerEmail" required /></label><br />
-                    <label>Mot de passe: <input type="password" id="registerPassword" required /></label><br />
-                    <button type="submit">Envoyer</button>
-                </form>
-            </div>
-            <div>
-                <h2>Connection</h2>
-                <form onsubmit="loginUser(event)">
-                    <label>Nom: <input type="text" id="loginName" required /></label><br />
-                    <label>Mot de passe: <input type="password" id="loginPassword" required /></label><br />
-                    <button type="submit">Envoyer</button>
-                </form>
-            </div>
-            <div class="game"> 
-                <p>Inserer jeu.fun</p>
-                <button onclick="pingBackend()">ping</button>
-            </div>
-        </div>
-        <p>Page generee par docker.</p>
-    </body>
-
+ <!-- <script src="https://cdn.tailwindcss.com"></script> -->
+ <link href="/src/styles.css" rel="stylesheet" />
+</head>
+<body class="bg-gray-900 text-white min-h-screen">
+  <nav class="justify-between items-center p-4 bg-gray-800 flex gap-4">
+    <a href="/" data-link class="hover:underline">Home</a>
+    <a href="/profile" data-link class="hover:underline">Profile</a>
+    <!-- <a href="/play" data-link class="hover:underline">Play</a> -->
+  </nav>
+  <main id="app" class="p-6">
+    <!-- Views get rendered here -->
+  </main>
+</body>
 </html>

@@ -25,6 +25,6 @@ destroy: clean
 	docker image prune -a -f
 	docker volume prune -f
 	docker system prune -a -f
-	rm -rf requirement/back/data/data.db
+	rm -rf requirement/backend/data/data.db
 
 .PHONY: all debug start stop clean fclean re destroy

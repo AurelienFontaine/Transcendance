@@ -1,13 +1,10 @@
-version: "3.8"
-
 services:
   frontend:
-    container_name: mon-site
-    image: nginx:alpine
+    container_name: frontend_container
+    build:
+      context: ./frontend
     ports:
-      - "8080:80"
-    volumes:
-      - ./frontend:/usr/share/nginx/html:ro
+      - "8080:8080"
     restart: unless-stopped
     depends_on:
       - backend

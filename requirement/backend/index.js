@@ -4,14 +4,17 @@ const bcrypt = require('bcrypt'); //hashage de mdp robuste et bcp utilise + util
 const db = require('./database.js');
 const { verify } = require('crypto');
 const { read } = require('fs');
-db.exec('PRAGMA foreign_keys = ON');
-await fastify.register(require('@fastify/jwt'), {
-    secret: 'secret tres secret'
-});
+
 // backend/index.js
 const fastify = Fastify({ logger: true})
 
+db.exec('PRAGMA foreign_keys = ON');
 async function start(){
+    
+    
+    await fastify.register(require('@fastify/jwt'), {
+        secret: 'secret tres secret'
+    });
  
     fastify.register(cors, {
         origin: '*', //dev only (faut pas faire ca)
@@ -78,18 +81,18 @@ async function start(){
 
     // Authentification 
     
-    fastify.get('/me', {
-        preHandler: [fastify.authenticate]
-    }, async (request, reply) => {
-        return { user: request.user };
-    });
-
     fastify.decorate("authenticate", async function (request, reply) {
         try {
             request.user = await request.jwtVerify();
         } catch (err) {
             reply.send(err);
         }
+    });
+    
+    fastify.get('/me', {
+        preHandler: [fastify.authenticate]
+    }, async (request, reply) => {
+        return { user: request.user };
     });
 
     //Demarrer le serveur

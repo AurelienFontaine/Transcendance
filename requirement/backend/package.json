@@ -1,0 +1,16 @@
+{
+  "name": "backend",
+  "version": "1.0.0",
+  "main": "index.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "fastify": "^4.15.0",
+    "@fastify/cors": "^8.2.0",
+    "better-sqlite3": "^8.0.0",
+    "@fastify/jwt": "^6.0.0",
+    "bcrypt": "^5.1.0"
+  }
+}

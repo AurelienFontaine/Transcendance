@@ -12,7 +12,7 @@ db.prepare(`
 `).run();
 
 db.prepare(`
-    CREATE TABLE IF NOT EXIST server (
+    CREATE TABLE IF NOT EXISTS server (
     id_player INTEGER NOT NULL,
     id_game INTEGER NOT NULL,
     FOREIGN KEY(id_player) REFERENCES users(id),
