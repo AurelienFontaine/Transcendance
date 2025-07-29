@@ -55,9 +55,7 @@ function toggleOptions(showElem: HTMLElement | null, hideElem: HTMLElement | nul
 // Authentication
 
 async function createUser(event: Event) {
-  console.log("submit capté");
   event.preventDefault(); //empeche le rechargement de la page
-  alert("On appelle createUser");
   const nameInput = document.getElementById("registerName") as HTMLInputElement | null;
   if (!nameInput) return alert("Champ nom introuvable");
   const name = nameInput.value;
@@ -100,52 +98,6 @@ async function loginUser(event: Event) {
   alert(JSON.stringify(data));
 }
 
-
-
-
-// changes the content of each id="app" component in index.html
-// function render() {
-//   const path = window.location.pathname; // the current url of the adress bar
-//   const page = routes[path] || (() => '<h1>404 Not Found</h1>'); // page gets the route value corresponding to the key
-//   document.getElementById('app')!.innerHTML = page(); // writes the result of page() into the right component id="app"
-
-//   // After render, hook up any needed interactivity
-//   if (path === '/play') {
-//     const localBtn = document.getElementById('localBtn');
-//     const localOptions = document.getElementById('localOptions');
-//     const onlineBtn = document.getElementById('onlineBtn');
-//     const onlineOptions = document.getElementById('onlineOptions');
-
-//     localBtn?.addEventListener('click', () => {
-//       toggleOptions(localOptions, onlineOptions);
-//     });
-
-//     onlineBtn?.addEventListener('click', () => {
-//       toggleOptions(onlineOptions, localOptions);
-//     });
-//   }
-
-//   // Pour gerer la connexion / inscription
-//   if (path === '/profile') {
-//     const registerForm = document.getElementById('registerForm') as HTMLElement;
-//     if (!registerForm) {
-//       alert("registerForm is null");
-//     } else {
-//       // console.log("registerForm OK:", registerForm.outerHTML);
-//       console.log("createUser =", createUser);
-//       registerForm.addEventListener('submit', createUser);
-//     }
-
-//     // const loginForm = document.getElementById('loginForm');
-//     // loginForm?.addEventListener('submit', loginUser);
-//   }
-// }
-
-
-
-
-
-
 function render() {
   const path = window.location.pathname;
   const page = routes[path] || (() => '<h1>404 Not Found</h1>');
@@ -170,13 +122,8 @@ function render() {
 
     if (path === '/profile') {
       const registerForm = document.getElementById('registerForm');
-      if (!registerForm) {
-        alert("registerForm introuvable après render");
-      } else {
-        console.log("✅ registerForm trouvé");
+      if (registerForm)
         registerForm.addEventListener('submit', createUser);
-      }
-
       const loginForm = document.getElementById('loginForm');
       if (loginForm) {
         loginForm.addEventListener('submit', loginUser);
@@ -184,13 +131,6 @@ function render() {
     }
   });
 }
-
-
-
-
-
-
-
 
 // Intercept internal navigation
 document.addEventListener('click', (e) => {
@@ -200,17 +140,6 @@ document.addEventListener('click', (e) => {
     navigate(target.getAttribute('href')!);
   }
 });
-
-
-// backend get
-
-  // async function pingBackend() {
-  //   const backendUrl = "http://backend:3000";
-  //   const res = await fetch(`${backendUrl}/ping`);
-  //   const data = await res.json();
-  //   alert(data.message);                  
-  // }
-
 
 // Handle browser back/forward
 window.addEventListener('popstate', render);

@@ -71,7 +71,7 @@ async function start(){
         const isValid = await checkPassword(password, user.password_hash);
         if (isValid) {
             const token = fastify.jwt.sign({ id: user.id, name: user.name});
-            return { succes: true, message: 'Connexion reussie', token};
+            return { succes: true, message: 'Connexion reussie'};
         } else {
             return reply.status(401).send({ error: 'Mot de passe incorrect'});
         }
