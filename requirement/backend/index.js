@@ -33,6 +33,10 @@ async function start(){
     })
     
 
+    // Protection INJECTION SQL //
+
+
+
     // Hashage PASSWORD
 
     const hashPassword = async (password) => {
@@ -43,17 +47,61 @@ async function start(){
 
     // User creation
 
-    fastify.post('/register', async (request, reply) => {
-    const { name, email, password } = request.body;
-    try {
-        const password_hash = await hashPassword(password);
-        const stmt = db.prepare('INSERT INTO users (name, email, password_hash) VALUES (?, ?, ?)');
-        const info = stmt.run(name, email, password_hash);
-        return { success: true, id: info.lastInsertRowid };
-    } catch (err) {
-        return reply.status(400).send({ error: err.message });
-    }
+    // fastify.post('/register', async (request, reply) => {
+    // const { name, email, password } = request.body;
+
+    // try {
+    //     const password_hash = await hashPassword(password);
+    //     const stmt = db.prepare('INSERT INTO users (name, email, password_hash) VALUES (?, ?, ?)');
+    //     const info = stmt.run(name, email, password_hash);
+    //     return { success: true, id: info.lastInsertRowid };
+    // } catch (err) {
+    //     return reply.status(400).send({ error: err.message });
+    // }
+    // });
+
+
+    fastify.post('/register', {
+        schema: {
+            body: {
+                type : 'object',
+                required: ['name', 'email', 'password'],
+                properties: {
+                    name: { type: 'string', minLength: 3, maxLength: 30 },
+                    email: { type: 'string', format: 'email' },
+                    password: { type: 'string', minLength: 3},
+                },
+            },
+            response: {
+                200: {
+                    type: 'object',
+                    properties: {
+                        success: { type: 'boolean' },
+                        id: { type: 'number' },
+                    },
+                },
+                400: {
+                    type: 'object',
+                    properties: {
+                        error: { type: 'string' },
+                    },
+                },
+            }
+        }
+    },
+    async (request, reply) => { //c'est toujours dans /register
+        const { name, email, password } = request.body;
+        try {
+            const password_hash = await hashPassword(password);
+            const stmt = db.prepare ('INSERT INTO users (name, email, password_hash) VALUES (?, ?, ?)');
+            const info = stmt.run(name, email, password_hash);
+            return { success: true, id: info.lastInsertRowid };
+        } catch (err) {
+            return reply.status(400).send({ error: err.message });
+        }
     });
+
+
 
     // User login
 

@@ -52,8 +52,6 @@ function toggleOptions(showElem: HTMLElement | null, hideElem: HTMLElement | nul
   hideElement(hideElem)  
 }
 
-
-
 // Authentication //////////////////////////////////
 
 async function createUser(event: Event) {
