@@ -52,7 +52,9 @@ function toggleOptions(showElem: HTMLElement | null, hideElem: HTMLElement | nul
   hideElement(hideElem)  
 }
 
-// Authentication
+
+
+// Authentication //////////////////////////////////
 
 async function createUser(event: Event) {
   event.preventDefault(); //empeche le rechargement de la page
@@ -98,7 +100,6 @@ async function loginUser(event: Event) {
   if (data.token) { //gestion du log cote client
     localStorage.setItem('token', data.token);
     localStorage.setItem('username', name);
-    alert("Connexion reussie !");
     updateUIForLoggedInUser(name); //MAJ de l'interface client
   } else {
     alert("Erreur : " + (data.error || "Connexion echouee"));
@@ -106,29 +107,75 @@ async function loginUser(event: Event) {
   // alert(JSON.stringify(data)); //pour print la data de connexion
 }
 
+//Fonction qui modifie l'apparence de la page en fonction de la connection ou non
 function updateUIForLoggedInUser(username: string) {
   const loginForm = document.getElementById('loginForm');
-  if (loginForm) loginForm.style.display = 'none';
+  const registerForm = document.getElementById('registerForm');
 
-  const welcomemsg = document.createElement('div');
-  welcomemsg.id = 'welcomeMsg';
-  welcomemsg.style.display = 'block';
-  welcomemsg.textContent = `Bienvenue, ${username} !`;
+  if (loginForm) loginForm.style.display = 'none';
+  if (registerForm) registerForm.style.display = 'none';
+
+  const logoutBtn = document.getElementById('logoutButton');
+  if (logoutBtn) logoutBtn.style.display = 'block';
   
-  const profileContainer = document.getElementById('profilContainer'); // un container ou on veux afficher
-  if (profileContainer) {
-    profileContainer.appendChild(welcomemsg);
+  const showWelcome = document.getElementById('showWelcome');
+  if (showWelcome) {
+    showWelcome.style.display = 'block';
+    showWelcome.textContent = `Bienvenue, ${username} !`;
   }
 }
 
-function checkIfLoggedIn() {
+async function checkIfLoggedIn() {
+  await tokenCheck();
   const token = localStorage.getItem('token');
   const name = localStorage.getItem('username'); // à stocker lors du login si tu veux
-
   if (token && name) {
     updateUIForLoggedInUser(name);
   }
 }
+
+function updateUIForLoggedOutUser() {
+  const showWelcome = document.getElementById('showWelcome');
+  const logoutBtn = document.getElementById('logoutButton');
+  if (showWelcome) showWelcome.style.display = 'none';
+  if (logoutBtn) logoutBtn.style.display = 'none';
+
+  const loginForm = document.getElementById('loginForm');
+  const registerForm = document.getElementById('registerForm');
+  if (loginForm) loginForm.style.display = 'block';
+  if (registerForm) registerForm.style.display = 'block';
+}
+
+
+function logoutUser() {
+  localStorage.removeItem('token');
+  updateUIForLoggedOutUser();
+}
+
+// Verification du token
+
+async function tokenCheck() {
+  const backendUrl = "http://localhost:3000";
+  const token = localStorage.getItem('token');
+  if (token) {
+    try {
+      const response = await fetch (`${backendUrl}/me`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      if (!response.ok) throw new Error('Token invalide');
+    } catch (err) {
+      console.warn('Token expire ou invalide.');
+      localStorage.removeItem('token');
+      updateUIForLoggedOutUser();
+    }
+  }
+}
+
+
+///////// RENDER DE LA PAGE //////////////////////////////////////////
 
 
 function render() {
@@ -137,7 +184,7 @@ function render() {
   document.getElementById('app')!.innerHTML = page();
 
   // On attend que le DOM ait fini de peindre le contenu HTML injecté
-  requestAnimationFrame(() => {
+  requestAnimationFrame(() => { //attends le prochain refresh d'ecran
     if (path === '/play') {
       const localBtn = document.getElementById('localBtn');
       const localOptions = document.getElementById('localOptions');
@@ -161,6 +208,9 @@ function render() {
       if (loginForm) {
         loginForm.addEventListener('submit', loginUser);
       }
+
+      const logoutBtn = document.getElementById('logoutButton');
+      if (logoutBtn) logoutBtn.addEventListener('click', logoutUser);
     }
     checkIfLoggedIn();
   });

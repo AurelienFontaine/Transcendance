@@ -2,6 +2,7 @@ const Fastify = require('fastify');
 const cors = require ('@fastify/cors');
 const bcrypt = require('bcrypt'); //hashage de mdp robuste et bcp utilise + utilise un SALT automatiquement
 const db = require('./database.js');
+const jwt = require('@fastify/jwt');
 const { verify } = require('crypto');
 const { read } = require('fs');
 
@@ -12,8 +13,8 @@ db.exec('PRAGMA foreign_keys = ON');
 async function start(){
     
     
-    await fastify.register(require('@fastify/jwt'), {
-        secret: 'secret tres secret'
+    await fastify.register(require('@fastify/jwt'), { //ajouter le JSON WEB TOKEN
+        secret: process.env.JWT_KEY || 'secureSafetyKey'
     });
  
     fastify.register(cors, {
@@ -89,9 +90,18 @@ async function start(){
         }
     });
     
+
+    // Verifier le token JWT user et return un 401 si token invalide
     fastify.get('/me', {
         preHandler: [fastify.authenticate]
     }, async (request, reply) => {
+        const userId = request.user.id;
+
+        const user = db.prepare('SELECT id, name FROM users WHERE id = ?').get(userId);
+
+        if (!user) {
+            return reply.status(401).send({error: 'Utilisateur supprime ou inexistant.'});
+        }
         return { user: request.user };
     });
 

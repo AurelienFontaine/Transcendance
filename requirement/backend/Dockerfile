@@ -16,6 +16,8 @@ RUN npm install fastify @fastify/cors better-sqlite3 @fastify/jwt
 
 RUN npm install bcrypt
 
+RUN chmod +x /app/script/entrypoint.sh
+
 EXPOSE 3000
 
-CMD ["node", "index.js"]
+ENTRYPOINT ["/app/script/entrypoint.sh"]
