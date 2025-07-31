@@ -16,6 +16,9 @@ RUN npm install fastify @fastify/cors better-sqlite3 @fastify/jwt
 
 RUN npm install bcrypt
 
+#auth google
+RUN npm install axios
+
 RUN chmod +x /app/script/entrypoint.sh
 
 EXPOSE 3000

@@ -20,6 +20,13 @@ export function renderProfile() {
         <input id="loginPassword" type="password" placeholder="Mot de passe" class="w-full p-2 rounded bg-gray-700 text-white" required />
         <button type="submit" class="w-full bg-green-600 hover:bg-green-700 text-white p-2 rounded">Se connecter</button>
       </form>
+	  <!-- Bouton HTML -->
+	  <a id="googleLoginButton" href="http://localhost:3000/auth/google">
+  		<button style="padding: 10px 20px; background-color: #4285F4; color: white; border: none; border-radius: 5px;">
+   			 Se connecter avec Google
+  		</button>
+		</a>
+
     </div>
   `;
 }

@@ -127,6 +127,9 @@ function updateUIForLoggedInUser(username: string) {
     showWelcome.style.display = 'block';
     showWelcome.textContent = `Bienvenue, ${username} !`;
   }
+  const googleBtn = document.getElementById('googleLoginButton');
+  if (googleBtn) googleBtn.style.display = 'none';
+
 }
 
 async function checkIfLoggedIn() {
@@ -148,6 +151,8 @@ function updateUIForLoggedOutUser() {
   const registerForm = document.getElementById('registerForm');
   if (loginForm) loginForm.style.display = 'block';
   if (registerForm) registerForm.style.display = 'block';
+  const googleBtn = document.getElementById('googleLoginButton');
+  if (googleBtn) googleBtn.style.display = 'block';
 }
 
 
@@ -184,6 +189,19 @@ async function tokenCheck() {
 
 function render() {
   const path = window.location.pathname;
+  // Lire les paramètres d'URL (token + name)
+	const urlParams = new URLSearchParams(window.location.search);
+	const token = urlParams.get('token');
+	const name = urlParams.get('name');
+
+	if (token && name) {
+	localStorage.setItem('token', token);
+	localStorage.setItem('username', name);
+	updateUIForLoggedInUser(name);
+	// Nettoyer l'URL pour ne pas laisser les paramètres visibles
+	window.history.replaceState({}, '', window.location.pathname);
+	}
+
   const page = routes[path] || (() => '<h1>404 Not Found</h1>');
   document.getElementById('app')!.innerHTML = page();
 
