@@ -125,7 +125,6 @@ function updateUIForLoggedInUser(username: string) {
   }
   const googleBtn = document.getElementById('googleLoginButton');
   if (googleBtn) googleBtn.style.display = 'none';
-
 }
 
 async function checkIfLoggedIn() {
