@@ -113,4 +113,5 @@ module.exports = registerGoogleAuthRoutes;
 - securiser le stockage des token ailleurs que dans local storage
 - ajouter un redirect dans le cas ou le user refuse la connexion
 - ajouter un champ mdp pour que l'user renseigne lui meme son mdp
+(optionnel) - voir pour le faire avec 42Auth et pas google
 */
