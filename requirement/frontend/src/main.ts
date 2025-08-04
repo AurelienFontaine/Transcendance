@@ -195,8 +195,16 @@ function render() {
   const path = window.location.pathname;
   // Lire les paramètres d'URL (token + name)
 	const urlParams = new URLSearchParams(window.location.search);
+	const error = urlParams.get('error');
 	const token = urlParams.get('token');
 	const name = urlParams.get('name');
+
+	//verification du refus de connection de l'user
+	if (error === 'access_denied') {
+		alert("Connexion via Google refusée.");
+		// Optionnel : nettoie l'URL pour ne pas garder ?error
+		window.history.replaceState({}, '', window.location.pathname);
+  	}
 
 	if (token && name) {
 	localStorage.setItem('token', token);
