@@ -1,5 +1,7 @@
-//document.getElementById('message')!.textContent = 'Le site fonctionne via Docker !';
+//import styles
 import "./styles.css";
+
+//import vues/pages du site (SPA)
 import { renderHome } from '../pages/home';
 import { renderProfile } from '../pages/profile';
 import { renderPlay } from '../pages/play';
@@ -11,13 +13,14 @@ const routes: Record<string, () => string> = {
   '/': renderHome,
   '/profile': renderProfile,
   '/play': renderPlay,
-};
+};// objet, associe chaque chemin url a une fonction qui genere du html
 
 // window.history.pushState(state, title, url) adds a new entry to the browser history without reloading the page
 function navigate(path: string) {
-  history.pushState({}, '', path);
+  history.pushState({}, '', path); //ajoute nouv entree dans l'historique
   render(); // re-render the page to match the last history state
-}
+} //sPA
+
 
 function showElement(el: HTMLElement) {
   // hide options before toggling "hidden"
@@ -31,7 +34,8 @@ function showElement(el: HTMLElement) {
   void el.offsetWidth;
   el.classList.add('opacity-100', 'scale-y-100');
   el.classList.remove('opacity-0', 'scale-y-0');
-}
+}//affiche un element avec transition
+
 
 function hideElement(el: HTMLElement) {
   el.classList.remove('opacity-100', 'scale-y-100');
@@ -39,11 +43,11 @@ function hideElement(el: HTMLElement) {
 
   // Hide the other options
   el.classList.add('hidden');
-}
+}//cache un element avec animation
 
 // function to animate game mode selection
 function toggleOptions(showElem: HTMLElement | null, hideElem: HTMLElement | null) {
-  if (!showElem || !hideElem) return;
+  if (!showElem || !hideElem) return;//securise si un element est null
 
   // Show the selected one
   showElement(showElem);
@@ -54,8 +58,11 @@ function toggleOptions(showElem: HTMLElement | null, hideElem: HTMLElement | nul
 
 // Authentication //////////////////////////////////
 
+//enregistre un user via formulaire
 async function createUser(event: Event) {
   event.preventDefault(); //empeche le rechargement de la page
+
+  //recuperation des champs du formulaire
   const nameInput = document.getElementById("registerName") as HTMLInputElement | null;
   if (!nameInput) return alert("Champ nom introuvable");
   const name = nameInput.value;
@@ -86,6 +93,7 @@ async function createUser(event: Event) {
   // alert(JSON.stringify(data));
 }
 
+//connexion user
 async function loginUser(event: Event) {
   event.preventDefault();
   const nameInput = document.getElementById("loginName") as HTMLInputElement;
@@ -101,9 +109,9 @@ async function loginUser(event: Event) {
     body: JSON.stringify({name, password}),
   });
   const data = await response.json();
-  if (data.token) { //gestion du log cote client
-    localStorage.setItem('token', data.token);
-    localStorage.setItem('username', name);
+  if (data.token) { //gestion du log cote client si login reussi
+    localStorage.setItem('token', data.token); //stock JWT
+    localStorage.setItem('username', name); //stock nom
     updateUIForLoggedInUser(name); //MAJ de l'interface client
   } else {
     alert("Erreur : " + (data.error || "Connexion echouee"));
@@ -131,8 +139,9 @@ function updateUIForLoggedInUser(username: string) {
   if (googleBtn) googleBtn.style.display = 'none';
 }
 
+//affichage pour user deconnecte, maj UI
 async function checkIfLoggedIn() {
-  await tokenCheck();
+  await tokenCheck(); //verif la validite du token en back
   const token = localStorage.getItem('token');
   const name = localStorage.getItem('username'); // à stocker lors du login si tu veux
   if (token && name) {
@@ -140,6 +149,7 @@ async function checkIfLoggedIn() {
   }
 }
 
+//MAJ si user connecte
 function updateUIForLoggedOutUser() {
   const showWelcome = document.getElementById('showWelcome');
   const logoutBtn = document.getElementById('logoutButton');
@@ -154,14 +164,13 @@ function updateUIForLoggedOutUser() {
   if (googleBtn) googleBtn.style.display = 'block';
 }
 
-
+//deconnection, supp token, reinitialise l'affichage
 function logoutUser() {
   localStorage.removeItem('token');
   updateUIForLoggedOutUser();
 }
 
 // Verification du token
-
 async function tokenCheck() {
   const backendUrl = "http://localhost:3000";
   const token = localStorage.getItem('token');
@@ -185,7 +194,7 @@ async function tokenCheck() {
 
 ///////// RENDER DE LA PAGE //////////////////////////////////////////
 
-
+//ftc principale de rendu de la SPA
 function render() {
   const path = window.location.pathname;
   // Lire les paramètres d'URL (token + name)
@@ -201,6 +210,7 @@ function render() {
 	window.history.replaceState({}, '', window.location.pathname);
 	}
 
+	//affiche la page correspondant a l'url ou 404
   const page = routes[path] || (() => '<h1>404 Not Found</h1>');
   document.getElementById('app')!.innerHTML = page();
 
@@ -233,11 +243,11 @@ function render() {
       const logoutBtn = document.getElementById('logoutButton');
       if (logoutBtn) logoutBtn.addEventListener('click', logoutUser);
     }
-    checkIfLoggedIn();
+    checkIfLoggedIn(); //verifie la session a chaque affichage
   });
 }
 
-// Intercept internal navigation
+// Intercept internal navigation pour spa
 document.addEventListener('click', (e) => {
   const target = e.target as HTMLElement; // ensure it is a DOM element
   if (target.matches('[data-link]')) {
