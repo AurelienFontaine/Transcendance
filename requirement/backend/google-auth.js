@@ -70,7 +70,7 @@ function registerGoogleAuthRoutes(fastify, hashPassword) {
 
 			//interroge la base SQLite, verifie si l'user existe deja, si user = undefined, il faut le creer
 			let user = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
-
+			let firstTime = false;
 			if (!user) { //si mail non existant dans db, on l'ajoute
 				//utilisation du sub pour creer un mdp hashed, vu que l'user n'en a pas choisi un
 				const dummyPassword = await hashPassword(sub);
@@ -85,15 +85,16 @@ function registerGoogleAuthRoutes(fastify, hashPassword) {
 					name,
 					email
 				};
+				firstTime = true;
 			}
 
 			//creation/signature d'un JWT, contient l'id et le name du user, permet de l'identifier plus tard
 			//prouve que l'user est bien authentifie, necessaire a chaque connexion
-			const token = fastify.jwt.sign({ id: user.id, name: user.name });
+			const token = fastify.jwt.sign({ id: user.id, name: user.name, firstTime });
 
 			//redirection vers le front port 8080, ajout du token et du nom pour que le front end le stock dans local storage
 			//localStorage (=wone de stockage locale dans le nav, appartient au site, persistante si on ferme l'onglet ou rafraichis, on y accede en javascript)
-			reply.redirect(`http://localhost:8080/profile?token=${token}&name=${encodeURIComponent(user.name)}`);
+			reply.redirect(`http://localhost:8080/profile?token=${token}&name=${encodeURIComponent(user.name)}&firstTime=${firstTime}`);
 			//a securiser !!! -> il vaut mieux stocker dans des cookies httpOnly pour eviter les attaques XSS
 		
 		} catch (err) { //interception d'erreurs
@@ -111,7 +112,6 @@ module.exports = registerGoogleAuthRoutes;
 
 /*note:
 - securiser le stockage des token ailleurs que dans local storage
-- ajouter un redirect dans le cas ou le user refuse la connexion
 - ajouter un champ mdp pour que l'user renseigne lui meme son mdp
 (optionnel) - voir pour le faire avec 42Auth et pas google
 */

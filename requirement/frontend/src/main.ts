@@ -5,6 +5,9 @@ import "./styles.css";
 import { renderHome } from '../pages/home';
 import { renderProfile } from '../pages/profile';
 import { renderPlay } from '../pages/play';
+import { renderChoosePassword } from '../pages/choose-password';
+
+import { setupChoosePasswordHandler } from '../handlers/user-handler';
 
 // Record<K, V> utility typescript type with K as key type and V as value type
 // () => string : function without parameters returning a string
@@ -13,6 +16,7 @@ const routes: Record<string, () => string> = {
   '/': renderHome,
   '/profile': renderProfile,
   '/play': renderPlay,
+	'/choose-password': renderChoosePassword,
 };// objet, associe chaque chemin url a une fonction qui genere du html
 
 // window.history.pushState(state, title, url) adds a new entry to the browser history without reloading the page
@@ -202,13 +206,23 @@ function render() {
 	const error = urlParams.get('error');
 	const token = urlParams.get('token');
 	const name = urlParams.get('name');
+	const firstTime = urlParams.get('firstTime'); //premiere connection avec OAuth
 
 	//verification du refus de connection de l'user
 	if (error === 'access_denied') {
 		alert("Connexion via Google refusée.");
-		// Optionnel : nettoie l'URL pour ne pas garder ?error
+		//nettoie l'URL pour ne pas garder ?error
 		window.history.replaceState({}, '', window.location.pathname);
   	}
+
+	if (firstTime === 'true'){ //demande d'initialisation de mdp
+		alert("Bienvenue dans notre projet Transcendance ! Veuillez choisir un mot de passe pour finaliser votre inscription! ");
+		navigate('/choose-password');
+		return;
+	}
+
+	//gerer l'initialisation du mdp pas terminer, a terminer et commenter
+	if (path === '/choose-password') {setupChoosePasswordHandler(navigate);}
 
 	if (token && name) {
 	localStorage.setItem('token', token);
