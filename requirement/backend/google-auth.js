@@ -32,6 +32,11 @@ function registerGoogleAuthRoutes(fastify, hashPassword) {
 
 	// get recoit le code envoye par google a echanger contre un access token, ce code n'est valide que quelque minutes et utilisable qu'une fois
 	fastify.get('/auth/google/callback', async (request, reply) => {
+		//si l'user ne veux plus utiliser l'authentification google
+		if (request.query.error) {
+			console.warn("Connexion refusée par l'utilisateur");
+			return reply.redirect('http://localhost:8080/profile?error=access_denied');
+		}
 		const code = request.query.code; //recuperation du code envoye dans l'url par google
 		//si le code n'est pas la, renvoie d'une erreur
 		if (!code) return reply.status(400).send({ error: 'Code non fourni par Google' });
