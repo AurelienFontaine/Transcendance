@@ -2,9 +2,11 @@ const Fastify = require('fastify');
 const cors = require ('@fastify/cors');
 const bcrypt = require('bcrypt'); //hashage de mdp robuste et bcp utilise + utilise un SALT automatiquement
 const db = require('./database.js');
+const registerGoogleAuthRoutes = require('./google-auth');
 const jwt = require('@fastify/jwt');
 const { verify } = require('crypto');
 const { read } = require('fs');
+
 
 // backend/index.js
 const fastify = Fastify({ logger: true})
@@ -32,77 +34,6 @@ async function start(){
         return {message: 'pong'}
     })
 
-	//auth/google redirection connection google
-	const GOOGLE_CLIENT_ID = '1026191592145-g38oau1j785vuvgjv2asagkinl72nq2a.apps.googleusercontent.com';
-	const REDIRECT_URI = 'http://localhost:3000/auth/google/callback';
-
-	fastify.get('/auth/google', async (request, reply) => {
-		const params = new URLSearchParams({
-			client_id: GOOGLE_CLIENT_ID,
-			redirect_uri: REDIRECT_URI,
-			response_type: 'code',
-			scope: 'profile email',
-			access_type: 'offline',
-			prompt: 'consent'
-		});
-
-		reply.redirect(`https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`);
-	});
-	const axios = require('axios'); // npm install axios
-
-	const GOOGLE_CLIENT_SECRET = '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';
-
-	fastify.get('/auth/google/callback', async (request, reply) => {
-		const code = request.query.code;
-		if (!code) return reply.status(400).send({ error: 'Code non fourni par Google' });
-
-		try {
-			// 1. Échange du code contre un access_token
-			const tokenResponse = await axios.post('https://oauth2.googleapis.com/token', {
-				code,
-				client_id: GOOGLE_CLIENT_ID,
-				client_secret: GOOGLE_CLIENT_SECRET,
-				redirect_uri: REDIRECT_URI,
-				grant_type: 'authorization_code'
-			});
-
-			const { access_token } = tokenResponse.data;
-
-			// 2. Utilisation du token pour récupérer les infos du profil
-			const userInfoResponse = await axios.get('https://www.googleapis.com/oauth2/v3/userinfo', {
-				headers: {
-					Authorization: `Bearer ${access_token}`
-				}
-			});
-
-			const { name, email, sub } = userInfoResponse.data;
-
-			// 3. Vérifie si l'utilisateur existe déjà
-			let user = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
-
-			if (!user) {
-				// Création du compte avec un mot de passe vide ou généré
-				const dummyPassword = await hashPassword(sub); // On hash un ID Google
-				const insert = db.prepare('INSERT INTO users (name, email, password_hash) VALUES (?, ?, ?)')
-					.run(name, email, dummyPassword);
-
-				user = {
-					id: insert.lastInsertRowid,
-					name,
-					email
-				};
-			}
-
-			// 4. Générer un JWT
-			const token = fastify.jwt.sign({ id: user.id, name: user.name });
-			// 🔁 Tu peux rediriger vers le front avec le token dans l'URL, ou répondre en JSON :
-			reply.redirect(`http://localhost:8080/profile?token=${token}&name=${encodeURIComponent(user.name)}`);
-		} catch (err) {
-			console.error(err.response?.data || err);
-			return reply.status(500).send({ error: 'Erreur durant le login Google' });
-		}
-	});
-
     // Hashage PASSWORD
 
     const hashPassword = async (password) => {
@@ -110,6 +41,9 @@ async function start(){
         const hashed = await bcrypt.hash(password, saltRounds);
         return hashed;
     };
+
+	//enregistre les routes OAuth externes (google), a mettre apres l'initialisation de hashPassword et av route /register, /login
+	registerGoogleAuthRoutes(fastify, hashPassword);
 
     // User creation
 

@@ -1,0 +1,15 @@
+# Variables d'environnement
+.env
+.env.*
+.secrets
+
+# Fichiers de base de données locales
+data/
+*.sqlite
+*.sqlite3
+*.db
+
+# outils
+.vscode/
+*.swp
+.DS_Store

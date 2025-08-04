@@ -16,7 +16,8 @@ RUN npm install fastify @fastify/cors better-sqlite3 @fastify/jwt
 
 RUN npm install bcrypt
 
-#auth google
+#auth google, lib http javascript
+#permet de faire des requetes http en java pour node.js mais aussi pour le navigateur
 RUN npm install axios
 
 RUN chmod +x /app/script/entrypoint.sh

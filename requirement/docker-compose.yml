@@ -10,6 +10,8 @@ services:
       - backend
     networks:
       - transcendence
+    env_file:
+      - .env
 
   backend:
     container_name: backend_container
@@ -21,6 +23,8 @@ services:
       - ./backend/data:/app/data
     networks:
       - transcendence
+    env_file:
+      - .env
 
 networks:
   transcendence:
