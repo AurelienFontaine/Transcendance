@@ -62,6 +62,7 @@ async function start(){
                     properties: {
                         success: { type: 'boolean' },
                         id: { type: 'number' },
+                        token: { type: 'string' }, //se co apres le register
                     },
                 },
                 400: { //erreur auto fastify (champ manquant ou invalide)
@@ -91,7 +92,13 @@ async function start(){
             const password_hash = await hashPassword(password);
             const stmt = db.prepare ('INSERT INTO users (name, email, password_hash) VALUES (?, ?, ?)');
             const info = stmt.run(name, email, password_hash);
-            return { success: true, id: info.lastInsertRowid };
+
+            const token = fastify.jwt.sign({
+                id: info.lastInsertRowid,
+                name: name,
+            });
+
+            return { success: true, id: info.lastInsertRowid, token};
         } catch (err) {
             return reply.status(400).send({ error: err.message });
         }

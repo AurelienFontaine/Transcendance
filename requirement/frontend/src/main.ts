@@ -77,7 +77,13 @@ async function createUser(event: Event) {
   });
  
   const data = await response.json();
-  alert(JSON.stringify(data));
+
+  if (data.token) { //gestion du log cote client
+    localStorage.setItem('token', data.token);
+    localStorage.setItem('username', name);
+    updateUIForLoggedInUser(name); //MAJ de l'interface client
+  }
+  // alert(JSON.stringify(data));
 }
 
 async function loginUser(event: Event) {
