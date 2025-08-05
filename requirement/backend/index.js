@@ -41,7 +41,7 @@ async function start(){
         const hashed = await bcrypt.hash(password, saltRounds);
         return hashed;
     };
-
+    
 	//enregistre les routes OAuth externes (google), a mettre apres l'initialisation de hashPassword et av route /register, /login
 	registerGoogleAuthRoutes(fastify, hashPassword);
 
