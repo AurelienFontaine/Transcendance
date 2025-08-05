@@ -75,16 +75,13 @@ function registerGoogleAuthRoutes(fastify, hashPassword) {
 				//utilisation du sub pour creer un mdp hashed, vu que l'user n'en a pas choisi un
 				const dummyPassword = await hashPassword(sub);
 
-				//requete SQL pour injecter le nouv user avec les infos de google dans la tab users
-				const insert = db.prepare('INSERT INTO users (name, email, password_hash) VALUES (?, ?, ?)')
-					.run(name, email, dummyPassword);
-
+				const checkUserName = db.prepare('SELECT * FROM users WHERE name = ?').get(name);
+				if (!checkUserName)
+				{//requete SQL pour injecter le nouv user avec les infos de google dans la tab users
+					const insert = db.prepare('INSERT INTO users (name, email, password_hash) VALUES (?, ?, ?)').run(name, email, dummyPassword);
+				}else{const insert = db.prepare('INSERT INTO users (name, email, password_hash) VALUES (?, ?, ?)').run(email, email, dummyPassword);}
 				//initialisation variable javascript user avec les infos du nouv utilisateur (but?: recup l'id et le reutiliser pour signe un token JWT)
-				user = {
-					id: insert.lastInsertRowid, //id auto-incremente cree par SQLite a l'insertion
-					name,
-					email
-				};
+				user = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
 				firstTime = true;
 			}
 
