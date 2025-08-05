@@ -45,22 +45,6 @@ async function start(){
         return hashed;
     };
 
-    // User creation
-
-    // fastify.post('/register', async (request, reply) => {
-    // const { name, email, password } = request.body;
-
-    // try {
-    //     const password_hash = await hashPassword(password);
-    //     const stmt = db.prepare('INSERT INTO users (name, email, password_hash) VALUES (?, ?, ?)');
-    //     const info = stmt.run(name, email, password_hash);
-    //     return { success: true, id: info.lastInsertRowid };
-    // } catch (err) {
-    //     return reply.status(400).send({ error: err.message });
-    // }
-    // });
-
-
     fastify.post('/register', {
         schema: {
             body: {
@@ -73,14 +57,20 @@ async function start(){
                 },
             },
             response: {
-                200: {
+                200: { //ca fonctionne
                     type: 'object',
                     properties: {
                         success: { type: 'boolean' },
                         id: { type: 'number' },
                     },
                 },
-                400: {
+                400: { //erreur auto fastify (champ manquant ou invalide)
+                    type: 'object',
+                    properties: {
+                        error: { type: 'string' },
+                    },
+                },
+                409: { //erreur (409 = Conflict) qui indique un conflit logique (doublon utilisateur ici)
                     type: 'object',
                     properties: {
                         error: { type: 'string' },
@@ -91,6 +81,12 @@ async function start(){
     },
     async (request, reply) => { //c'est toujours dans /register
         const { name, email, password } = request.body;
+        // Check utilisateur deja cree
+        const existUser = db.prepare('SELECT id FROM users WHERE name = ? OR email = ?').get(name, email);
+        if (existUser) {
+            return reply.status(409).send({ error: 'Nom ou email deja utilise' });
+        }
+        // Creation user
         try {
             const password_hash = await hashPassword(password);
             const stmt = db.prepare ('INSERT INTO users (name, email, password_hash) VALUES (?, ?, ?)');
@@ -109,24 +105,58 @@ async function start(){
         return await bcrypt.compare(password, hashPassword);
     };
 
-    fastify.post('/login', async (request, reply) => {
-        const {name, password} = request.body;
-        if (!name || !password) { return reply.status(400).send({ error: 'Nom et mot de passe requis' })}
+    fastify.post('/login', {
+        schema: {
+            body: {
+                type: 'object',
+                required: ['name', 'password'],
+                properties: {
+                    name: { type: 'string', minLength: 3, maxLength: 30 },
+                    password: { type: 'string', minLength: 3 }
+                }
+            },
+            response: {
+                200: { //ca fonctionne
+                    type: 'object',
+                    properties: {
+                        success: { type: 'boolean' },
+                        message: { type: 'string' },
+                        token: { type: 'string' }
+                    }
+                },
+                400: { //erreur auto (mdp trop court... c'est fastify qui gere)
+                    type: 'object',
+                    properties: {
+                        error: { type: 'string' }
+                    }
+                },
+                401: { //erreur (401 = Unauthorized) manuelle liee a la bdd
+                    type: 'object',
+                    properties: {
+                        error: { type: 'string' }
+                    }
+                }
+            }
+        }
+    }, async (request, reply) => { //toujours dans le /login
+        const { name, password } = request.body;
 
         const user = db.prepare('SELECT * FROM users WHERE name = ?').get(name);
-
-        if (!user) return reply.status(401).send({ error: 'Utilisateur non trouve'});
-
+        if (!user) {
+            return reply.status(401).send({ error: 'Utilisateur non trouve' });
+        }
         const isValid = await checkPassword(password, user.password_hash);
-        if (isValid) {
-            const token = fastify.jwt.sign({ id: user.id, name: user.name});
-            return { success: true, message: 'Connexion reussie', token};
-        } else {
-            return reply.status(401).send({ error: 'Mot de passe incorrect'});
+        if (!isValid) {
+            return reply.status(401).send({ error: 'Mot de passe incorrect' });
         }
 
-        // Generer un token JWT pour l'authentification
+        const token = fastify.jwt.sign({ id: user.id, name: user.name });
+        return { success: true, message: 'Connexion reussie', token }; //200
     });
+
+
+
+
 
     // Authentification 
     
