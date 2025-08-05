@@ -16,7 +16,7 @@ const routes: Record<string, () => string> = {
   '/': renderHome,
   '/profile': renderProfile,
   '/play': renderPlay,
-	'/choose-password': renderChoosePassword,
+  '/choose-password': renderChoosePassword,
 };// objet, associe chaque chemin url a une fonction qui genere du html
 
 // window.history.pushState(state, title, url) adds a new entry to the browser history without reloading the page
@@ -204,7 +204,7 @@ function render() {
 	const name = urlParams.get('name');
 	const firstTime = urlParams.get('firstTime'); //premiere connection avec OAuth
 
-	//verification du refus de connection de l'user
+    //verification du refus de connection de l'user
 	if (error === 'access_denied') {
 		alert("Connexion via Google refusée.");
 		//nettoie l'URL pour ne pas garder ?error
@@ -218,7 +218,15 @@ function render() {
 	}
 
 	//gerer l'initialisation du mdp pas terminer, a terminer et commenter
-	if (path === '/choose-password') {setupChoosePasswordHandler(navigate);}
+	if (path === '/choose-password') {
+		// const token = localStorage.getItem("token");
+
+		// if (!token && firstTime === 'false') {
+		// 	alert("Accès refusé. Veuillez vous connecter.");
+		// 	return navigate("/profile");
+		// }
+		// //setupChoosePasswordHandler(navigate);
+	}
 
 	if (token && name) {
 	localStorage.setItem('token', token);
