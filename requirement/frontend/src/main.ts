@@ -94,7 +94,9 @@ async function createUser(event: Event) {
     localStorage.setItem('username', name);
     updateUIForLoggedInUser(name); //MAJ de l'interface client
   }
-  // alert(JSON.stringify(data));
+  else {
+    alert(JSON.stringify(data));
+  }
 }
 
 //connexion user
