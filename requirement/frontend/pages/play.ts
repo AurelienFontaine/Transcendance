@@ -49,10 +49,10 @@ export function renderPlay() {
           <button id="applySettings">Appliquer</button>
         </div>
           <div id="app"></div>
-          <script type="module" src="/src/main.ts"></script>
+          <script type="module" src="../handlers/game-front.ts"></script>
 
           <section id="pong">
-            <iframe src="http://localhost:4000" width="800" height="600" style="border:none;"></iframe>
+            <iframe src="http://localhost:3010" width="800" height="600" style="border:none;"></iframe>
           </section>
       </div>
     </div>

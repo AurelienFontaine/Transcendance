@@ -1,6 +1,6 @@
 import p5 from "p5";
-import { sketch } from "./sketch";
-import { PongGame } from "../../game";
+import { sketch } from "../src/sketch";
+import { PongGame } from "../game/game-back";
 import type {
   GameState,
   InputMessage,
@@ -8,7 +8,7 @@ import type {
   StartMessage,
   ResetMessage,
   StateMessage,
-} from "./types";
+} from "../src/types";
 
 type ClientMessage =
   | InputMessage
