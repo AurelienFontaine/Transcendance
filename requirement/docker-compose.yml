@@ -25,6 +25,18 @@ services:
       - transcendence
     env_file:
       - .env
-
+  
+  game:
+    container_name: game_container
+    build:
+      context: ./game
+    ports:
+      - "3010:3000"
+    depends_on:
+      - backend
+      - frontend
+    networks:
+      - transcendence
+  
 networks:
   transcendence:

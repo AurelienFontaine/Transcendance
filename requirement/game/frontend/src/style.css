@@ -1,12 +1,3 @@
-/*fichier de depart pour tailwind css, ces lignes vont compiler des milliers de classes CSS utilisaire 
-doit etre compiler avec npx tailwindcss pour produire le vrai styles.css*/
-/*@import "tailwindcss";*/
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
-/* fichier de baptiste, style personnalise sans tailwind, css pur sans compilation*/
-
 :root {
   font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
@@ -45,6 +36,7 @@ h1 {
 }
 
 #app {
+  display: none;
   max-width: 1280px;
   margin: 0 auto;
   padding: 2rem;

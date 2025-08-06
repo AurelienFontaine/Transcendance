@@ -8,6 +8,7 @@ import { renderPlay } from '../pages/play';
 import { renderChoosePassword } from '../pages/choose-password';
 
 import { setupChoosePasswordHandler } from '../handlers/user-handler';
+import { handleGame } from '../handlers/game';
 
 // Record<K, V> utility typescript type with K as key type and V as value type
 // () => string : function without parameters returning a string
@@ -17,6 +18,7 @@ const routes: Record<string, () => string> = {
   '/profile': renderProfile,
   '/play': renderPlay,
   '/choose-password': renderChoosePassword,
+  '/game': handleGame
 };// objet, associe chaque chemin url a une fonction qui genere du html
 
 // window.history.pushState(state, title, url) adds a new entry to the browser history without reloading the page
