@@ -1,6 +1,6 @@
 import p5 from "p5";
-import { sketch } from "../src/sketch";
-import { PongGame } from "../game/game-back";
+import { sketch } from "./sketch";
+import { PongGame } from "./game-back";
 import type {
   GameState,
   InputMessage,
@@ -8,7 +8,7 @@ import type {
   StartMessage,
   ResetMessage,
   StateMessage,
-} from "../src/types";
+} from "./types";
 
 type ClientMessage =
   | InputMessage
@@ -124,14 +124,14 @@ document.getElementById("applySettings")?.addEventListener("click", () => {
 
 
 // 🌐 Online mode
-function startOnlineGame() {
+export function startOnlineGame() {
   console.log("🌐 startOnlineGame()");
   mode = "online";
 
   const pause = document.getElementById("pauseBtn") as HTMLButtonElement | null;
   const restart = document.getElementById("restartBtn") as HTMLButtonElement | null;
 
-  ws = new WebSocket(`ws://${window.location.hostname}:3010`);
+  ws = new WebSocket(`ws://game:3010`);
 
   ws.onmessage = (event) => {
     const msg = JSON.parse(event.data);
@@ -182,7 +182,7 @@ function startOnlineGame() {
 }
 
 // 🖥️ Local mode
-function startLocalGame() {
+export function startLocalGame() {
   console.log("🖥️ startLocalGame()");
   mode = "local";
   localGame = new PongGame();

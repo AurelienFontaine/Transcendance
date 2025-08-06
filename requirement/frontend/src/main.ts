@@ -62,6 +62,12 @@ function toggleOptions(showElem: HTMLElement | null, hideElem: HTMLElement | nul
   hideElement(hideElem)  
 }
 
+
+// GAME PONG ///////////////////////////////////////////////
+
+import * as Game from '../handlers/game/game-front';
+
+
 // Authentication //////////////////////////////////
 
 //enregistre un user via formulaire
@@ -256,9 +262,7 @@ function render() {
       const onlineBtn = document.getElementById('onlineBtn');
       const onlineOptions = document.getElementById('onlineOptions');
 
-      localBtn?.addEventListener('click', () => {
-        toggleOptions(localOptions, onlineOptions);
-      });
+      localBtn?.addEventListener('click', Game.startLocalGame);
 
       onlineBtn?.addEventListener('click', () => {
         toggleOptions(onlineOptions, localOptions);

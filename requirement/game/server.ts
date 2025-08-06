@@ -1,9 +1,9 @@
 import WebSocket, { WebSocketServer } from 'ws';
-import { PongGame } from './game-back';
-import { ServerMessage } from './frontend/src/types';
+import { PongGame } from './game/game-back';
+import { ServerMessage } from './game/types';
 
-const wss = new WebSocketServer({ port: 3000, host: '0.0.0.0' });
-console.log('✅ Server listening on ws://0.0.0.0:3000');
+const wss = new WebSocketServer({ port: 3010, host: '0.0.0.0' });
+console.log('✅ Server listening on ws://0.0.0.0:3010');
 
 let game = new PongGame();
 let clients: WebSocket[] = [];

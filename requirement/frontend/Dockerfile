@@ -4,8 +4,8 @@ FROM node:22-alpine3.21
 WORKDIR /app/frontend
 
 # Copier le HTML et le TS
-COPY . .
-
+COPY ./frontend .
+COPY ./shared ./handlers
 RUN apk --no-cache add curl
 
 # Installer les dependences dans package.json

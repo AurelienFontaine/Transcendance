@@ -2,12 +2,14 @@ services:
   frontend:
     container_name: frontend_container
     build:
-      context: ./frontend
+      context: .
+      dockerfile: ./frontend/Dockerfile
     ports:
       - "8080:8080"
     restart: unless-stopped
     depends_on:
       - backend
+      - game
     networks:
       - transcendence
     env_file:
@@ -29,12 +31,12 @@ services:
   game:
     container_name: game_container
     build:
-      context: ./game
+      context: .
+      dockerfile: ./game/Dockerfile
     ports:
-      - "3010:3000"
+      - "3010:3010"
     depends_on:
       - backend
-      - frontend
     networks:
       - transcendence
   

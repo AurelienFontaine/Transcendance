@@ -1,4 +1,4 @@
-import { GameState } from './frontend/src/types';
+import { GameState } from './types';
 
 export class PongGame {
   width = 800;
