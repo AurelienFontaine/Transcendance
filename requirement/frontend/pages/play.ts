@@ -13,7 +13,6 @@
 export function renderPlay() {
   return `
     <div class="min-h-screen flex flex-col items-center justify-center bg-gray-900 text-white">
-      <h1 class="text-3xl font-bold mb-6">Choose a Game Mode</h1>
 
       <div class="flex flex-col gap-4 items-center">
 
@@ -23,31 +22,32 @@ export function renderPlay() {
           <button id="onlineBtn">2 joueurs en ligne</button>
         </div>
         <!-- Conteneur du jeu -->
-        <div id="gamecontainer" style="display: none">
-          <div id="app", background = "black"></div>
-          <button id="pauseBtn" style="position: absolute; top: 10px; left: 10px; z-index: 10;">Pause</button>
-          <button id="restartBtn" style="position: absolute; top: 10px; right: 180px; z-index: 10;">Rejouer</button>
-        </div>
-        <button id="settingsBtn" style="position: absolute; top: 10px; right: 25px; z-index: 10;">Paramètres du jeu</button>
-
-        <div id="settingsPanel" style="display:none; position:absolute; top:40px; right:10px; background:#153bbb; padding:0.5rem; width:220px; font-size:0.9rem; border-radius:8px; box-shadow: 0px 4px 10px rgba(0,0,0,0.3); color:white;">
-          <label>Vitesse :
-            <select id="speedSelect">
-              <option value="slow">Lent</option>
-              <option value="medium" selected>Moyen</option>
-              <option value="fast">Rapide</option>
-            </select>
-          </label>
-          <br/>
-          <label>Couleur balle :
-            <input type="color" id="ballColor" value="#FFFFFF" />
-          </label>
-          <br/>
-          <label>Couleur raquettes :
-            <input type="color" id="paddleColor" value="#FFFFFF" />
-          </label>
-          <br/>
-          <button id="applySettings">Appliquer</button>
+        <div id="gamecontainer" style="display: none; width = 1000; height = 1000;">
+          <div id="app">
+            <button id="startBtn" style="display:none;  top: 100px; right: 180px; z-index: 10;">Start</button>
+            <button id="pauseBtn" style="display:none;  top: 10px; left: 10px; z-index: 10;">Pause</button>
+            <button id="restartBtn" style="display:none; top: 10px; right: 180px; z-index: 10;">Restart</button>
+          </div>
+          <button id="settingsBtn" style="display:none; top: 10px; right: 25px; z-index: 10;">Settings</button>
+          <div id="settingsPanel" style="display:none; position:absolute; top:40px; right:10px; background:#153bbb; padding:0.5rem; width:220px; font-size:0.9rem; border-radius:8px; box-shadow: 0px 4px 10px rgba(0,0,0,0.3); color:white;">
+            <label>Speed :
+              <select id="speedSelect">
+                <option value="slow">Slow</option>
+                <option value="medium" selected>Medium</option>
+                <option value="fast">FAAST</option>
+              </select>
+            </label>
+            <br/>
+            <label>Ball color :
+              <input type="color" id="ballColor" value="#FFFFFF" />
+            </label>
+            <br/>
+            <label>Paddles color :
+              <input type="color" id="paddleColor" value="#FFFFFF" />
+            </label>
+            <br/>
+            <button id="applySettings">Apply</button>
+          </div>
         </div>
           <script type="module" src="../handlers/game-front.ts"></script>
       </div>

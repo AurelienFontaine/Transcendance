@@ -26,17 +26,37 @@ let ws: WebSocket | null = null;
 let localGame: PongGame | null = null;
 let localLoop: number | undefined;
 
-const startBtn = document.createElement("button");
-startBtn.id = "startBtn";
-startBtn.innerText = "Lancer la partie";
-startBtn.style.position = "absolute";
-startBtn.style.top = "50%";
-startBtn.style.left = "50%";
-startBtn.style.transform = "translate(-50%, -50%)";
-startBtn.style.padding = "1rem 2rem";
-startBtn.style.fontSize = "1.2rem";
-startBtn.style.display = "none";
-document.body.appendChild(startBtn);
+// const startBtn = document.createElement("button");
+// getStartBtn().id = "startBtn";
+// getStartBtn().innerText = "Lancer la partie";
+// getStartBtn().style.position = "absolute";
+// getStartBtn().style.top = "50%";
+// getStartBtn().style.left = "50%";
+// getStartBtn().style.transform = "translate(-50%, -50%)";
+// getStartBtn().style.padding = "1rem 2rem";
+// getStartBtn().style.fontSize = "1.2rem";
+// getStartBtn().style.display = "none";
+
+
+function getStartBtn() {
+  return document.getElementById("startBtn") as HTMLButtonElement;
+}
+
+function getPauseBtn() {
+  return document.getElementById("pauseBtn") as HTMLButtonElement;
+}
+
+
+function getRestartBtn() {
+  return document.getElementById("restartBtn") as HTMLButtonElement;
+}
+
+
+function getSettingsBtn() {
+  return document.getElementById("settingsBtn") as HTMLButtonElement;
+}
+
+// document.body.appendChild(startBtn);
 
 let p5Instance: p5 | null = null;
 
@@ -65,7 +85,7 @@ function removeEventListeners() {
     oldRestart.replaceWith(clone);
   }
 
-  startBtn.onclick = null;
+  getStartBtn().onclick = null;
 }
 
 function cleanupGame() {
@@ -90,7 +110,7 @@ function cleanupGame() {
 
   removeEventListeners();
 
-  startBtn.style.display = "none";
+  getStartBtn().style.display = "none";
 
   const pause = document.getElementById("pauseBtn") as HTMLButtonElement | null;
   if (pause) pause.textContent = "Pause";
@@ -145,8 +165,8 @@ export function startOnlineGame() {
 
   ws.onopen = () => {
     console.log("✅ WebSocket OPEN");
-    startBtn.style.display = "block";
-    startBtn.disabled = false;
+    getStartBtn().style.display = "block";
+    getStartBtn().disabled = false;
 
     restart?.addEventListener("click", () => {
       console.log("🔁 Online: reset game");
@@ -163,19 +183,19 @@ export function startOnlineGame() {
       if (pause) pause.textContent = isPaused ? "Play" : "Pause";
     });
 
-    startBtn.onclick = () => {
+    getStartBtn().onclick = () => {
       console.log("🚀 Online: start game");
       if (ws?.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({ type: "start" }));
-        startBtn.disabled = true;
-        startBtn.style.display = "none";
+        getStartBtn().disabled = true;
+        getStartBtn().style.display = "none";
       }
     };
   };
 
   ws.onclose = () => {
     console.log("🔌 WebSocket CLOSED");
-    startBtn.style.display = "none";
+    getStartBtn().style.display = "none";
     if (pause) pause.textContent = "Pause";
   };
 }
@@ -194,8 +214,8 @@ export function startLocalGame() {
   const pause = document.getElementById("pauseBtn") as HTMLButtonElement | null;
   const restart = document.getElementById("restartBtn") as HTMLButtonElement | null;
 
-  startBtn.style.display = "block";
-  startBtn.disabled = false;
+  getStartBtn().style.display = "block";
+  getStartBtn().disabled = false;
 
   if (localLoop) clearInterval(localLoop);
   localLoop = window.setInterval(() => {
@@ -211,13 +231,13 @@ export function startLocalGame() {
       console.log("🌀 updated state:", latestState);
     }
   }, 1000 / 60);
-  startBtn.onclick = () => {
+  getStartBtn().onclick = () => {
     console.log("🚀 Local: start game");
     if (localGame) {
       localGame.resetBall();
       localGame.Started = true;
-      startBtn.disabled = true;
-      startBtn.style.display = "none";
+      getStartBtn().disabled = true;
+      getStartBtn().style.display = "none";
     }
   };
 
@@ -260,8 +280,8 @@ export function startLocalGame() {
     localGame.GameOver = false;
     if (pause) pause.textContent = "Play";  // 🔁 remet le texte correct
 
-    // startBtn.disabled = false;
-    // startBtn.style.display = "block";
+    getStartBtn().disabled = false;
+    getStartBtn().style.display = "block";
 
    if (localLoop) clearInterval(localLoop);
     localLoop = window.setInterval(() => {
@@ -317,18 +337,29 @@ function navigateTo(page: "menu" | "game-local" | "game-online") {
   renderPage(page);
 }
 
+export function __forceRender(page: "game-local" | "game-online" | "menu") {
+  const currentPage = history.state?.page;
+  if (currentPage !== page) {
+    history.replaceState({ page }, "", `#${page}`);
+  }
+  renderPage(page);
+}
+
+
 function renderPage(page: string) {
   console.log("📄 renderPage:", page);
   const menu = document.getElementById("menu")!;
   const gameContainer = document.getElementById("gamecontainer")!;
-
   switch (page) {
     case "menu":
       cleanupGame();
       mode = "menu";
       menu.style.display = "block";
       gameContainer.style.display = "none";
-      startBtn.style.display = "none";
+      getStartBtn().style.display = "none";
+      getPauseBtn().style.display = "none";
+      getRestartBtn().style.display = "none";
+      getSettingsBtn().style.display = "none";
       updateCanvasVisibility(false);
       pauseSketch();
       break;
@@ -337,19 +368,28 @@ function renderPage(page: string) {
       cleanupGame();
       menu.style.display = "none";
       gameContainer.style.display = "block";
-      updateCanvasVisibility(true);
 
       const canvas = document.getElementById("app");
       if (canvas) {
-        console.log("OUIIIIIIIIIIIIIIIIIIIIIIII");
+        if (p5Instance) {
+          p5Instance.remove();
+          p5Instance = null;
+        }
+
         p5Instance = new p5(sketch(() => latestState), canvas);
         resumeSketch();
         startLocalGame();
       } else {
         console.error("❌ canvas #app not found!");
       }
-  break;
 
+      getStartBtn().style.display = "block";
+      getPauseBtn().style.display = "block";
+      getRestartBtn().style.display = "block";
+      getSettingsBtn().style.display = "block";
+      // __forceRender("game-local");
+      updateCanvasVisibility(true);
+      break;
 
     case "game-online":
       cleanupGame();

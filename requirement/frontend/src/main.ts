@@ -262,10 +262,15 @@ function render() {
       const onlineBtn = document.getElementById('onlineBtn');
       const onlineOptions = document.getElementById('onlineOptions');
 
-      localBtn?.addEventListener('click', () => {
-        history.pushState({ page: "game-local" }, "", "#game-local");
-        window.dispatchEvent(new PopStateEvent("popstate", { state: { page: "game-local" } }));
+    localBtn?.addEventListener('click', () => {
+      history.pushState({ page: "game-local" }, "", "#game-local");
+
+      // ⚠️ Attendre que le DOM soit peint avant d’appeler Game.__forceRender
+      requestAnimationFrame(() => {
+        Game.__forceRender("game-local");
       });
+    });
+
 
 
       onlineBtn?.addEventListener('click', () => {
