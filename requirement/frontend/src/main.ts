@@ -7,7 +7,7 @@ import { renderProfile } from '../pages/profile';
 import { renderPlay } from '../pages/play';
 import { renderChoosePassword } from '../pages/choose-password';
 
-import { setupChoosePasswordHandler } from '../handlers/user-handler';
+import { ChoosePasswordHandler } from '../handlers/user-handler';
 
 // Record<K, V> utility typescript type with K as key type and V as value type
 // () => string : function without parameters returning a string
@@ -240,7 +240,7 @@ function render() {
 			navigate("/profile");
 			return;
 		}
-		setupChoosePasswordHandler(navigate);
+		ChoosePasswordHandler(navigate);
 	}
 
 	//affiche la page correspondant a l'url ou 404
