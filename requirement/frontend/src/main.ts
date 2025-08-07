@@ -217,30 +217,30 @@ function render() {
 		window.history.replaceState({}, '', window.location.pathname);
   	}
 
-	if (firstTime === 'true'){ //demande d'initialisation de mdp
-		alert("Bienvenue dans notre projet Transcendance ! Veuillez choisir un mot de passe pour finaliser votre inscription! ");
-		navigate('/choose-password');
-		//return;
-	}
-
-	//gerer l'initialisation du mdp pas terminer, a terminer et commenter
-	if (path === '/choose-password') {
-		const token = localStorage.getItem("token");
-
-		if (!token) {
-			alert("Accès refusé. Veuillez vous connecter.");
-			navigate("/profile");
-			return;
-		}
-		// //setupChoosePasswordHandler(navigate);
-	}
-
 	if (token && name) {
 	localStorage.setItem('token', token);
 	localStorage.setItem('username', name);
 	updateUIForLoggedInUser(name);
 	// Nettoyer l'URL pour ne pas laisser les paramètres visibles
 	window.history.replaceState({}, '', window.location.pathname);
+	}
+
+	if (firstTime === 'true'){ //demande d'initialisation de mdp
+		alert("Bienvenue dans notre projet Transcendance ! Veuillez choisir un mot de passe pour finaliser votre inscription! ");
+		navigate('/choose-password');
+		return;
+	}
+
+	//gerer l'initialisation du mdp pas terminer, a terminer et commenter
+	if (path === '/choose-password') {
+		const token = localStorage.getItem("token");
+
+		if (!token && !firstTime) {
+			alert("Accès refusé. Veuillez vous connecter.");
+			navigate("/profile");
+			return;
+		}
+		setupChoosePasswordHandler(navigate);
 	}
 
 	//affiche la page correspondant a l'url ou 404
