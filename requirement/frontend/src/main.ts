@@ -220,17 +220,18 @@ function render() {
 	if (firstTime === 'true'){ //demande d'initialisation de mdp
 		alert("Bienvenue dans notre projet Transcendance ! Veuillez choisir un mot de passe pour finaliser votre inscription! ");
 		navigate('/choose-password');
-		return;
+		//return;
 	}
 
 	//gerer l'initialisation du mdp pas terminer, a terminer et commenter
 	if (path === '/choose-password') {
-		// const token = localStorage.getItem("token");
+		const token = localStorage.getItem("token");
 
-		// if (!token && firstTime === 'false') {
-		// 	alert("Accès refusé. Veuillez vous connecter.");
-		// 	return navigate("/profile");
-		// }
+		if (!token) {
+			alert("Accès refusé. Veuillez vous connecter.");
+			navigate("/profile");
+			return;
+		}
 		// //setupChoosePasswordHandler(navigate);
 	}
 
