@@ -26,18 +26,6 @@ let ws: WebSocket | null = null;
 let localGame: PongGame | null = null;
 let localLoop: number | undefined;
 
-// const startBtn = document.createElement("button");
-// getStartBtn().id = "startBtn";
-// getStartBtn().innerText = "Lancer la partie";
-// getStartBtn().style.position = "absolute";
-// getStartBtn().style.top = "50%";
-// getStartBtn().style.left = "50%";
-// getStartBtn().style.transform = "translate(-50%, -50%)";
-// getStartBtn().style.padding = "1rem 2rem";
-// getStartBtn().style.fontSize = "1.2rem";
-// getStartBtn().style.display = "none";
-
-
 function getStartBtn() {
   return document.getElementById("startBtn") as HTMLButtonElement;
 }
@@ -55,8 +43,6 @@ function getRestartBtn() {
 function getSettingsBtn() {
   return document.getElementById("settingsBtn") as HTMLButtonElement;
 }
-
-// document.body.appendChild(startBtn);
 
 let p5Instance: p5 | null = null;
 
@@ -115,32 +101,6 @@ function cleanupGame() {
   const pause = document.getElementById("pauseBtn") as HTMLButtonElement | null;
   if (pause) pause.textContent = "Pause";
 }
-
-//Bouton Parametres
-document.getElementById("settingsBtn")?.addEventListener("click", () => {
-  const panel = document.getElementById("settingsPanel");
-  if (panel) panel.style.display = panel.style.display === "none" ? "block" : "none";
-});
-
-document.getElementById("applySettings")?.addEventListener("click", () => {
-  const speed = (document.getElementById("speedSelect") as HTMLSelectElement).value as "slow" | "medium" | "fast";
-  const ballColor = (document.getElementById("ballColor") as HTMLInputElement).value;
-  const paddleColor = (document.getElementById("paddleColor") as HTMLInputElement).value;
-
-  if (localGame) {
-    localGame.setSpeed(speed);
-    localGame.setColors(ballColor, paddleColor);
-    latestState = {
-    ...localGame.state,
-    ballColor: localGame.ballColor,
-    paddleColor: localGame.paddleColor
-    };
-  }
-  //Ferme apres Appliquer
-  const panel = document.getElementById("settingsPanel");
-  if (panel) panel.style.display = "none";
-});
-
 
 // 🌐 Online mode
 export function startOnlineGame() {
@@ -382,7 +342,36 @@ function renderPage(page: string) {
       } else {
         console.error("❌ canvas #app not found!");
       }
+      const settingsBtn = document.getElementById("settingsBtn");
+      const panel = document.getElementById("settingsPanel")!;
+      const applyBtn = document.getElementById("applySettings");
 
+      if (settingsBtn && panel) {
+        settingsBtn.addEventListener("click", () => {
+          const isVisible = panel.style.display === "block";
+          panel.style.display = isVisible ? "none" : "block";
+        });
+      }
+
+      if (applyBtn) {
+      applyBtn.addEventListener("click", () => {
+        const speed = (document.getElementById("speedSelect") as HTMLSelectElement).value as "slow" | "medium" | "fast";
+        const ballColor = (document.getElementById("ballColor") as HTMLInputElement).value;
+        const paddleColor = (document.getElementById("paddleColor") as HTMLInputElement).value;
+
+        if (localGame) {
+          localGame.setSpeed(speed);
+          localGame.setColors(ballColor, paddleColor);
+          latestState = {
+            ...localGame.state,
+            ballColor: localGame.ballColor,
+            paddleColor: localGame.paddleColor
+          };
+        }
+
+        panel.style.display = "none";
+      });
+      }
       getStartBtn().style.display = "block";
       getPauseBtn().style.display = "block";
       getRestartBtn().style.display = "block";

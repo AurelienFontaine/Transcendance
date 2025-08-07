@@ -27,9 +27,9 @@ export function renderPlay() {
             <button id="startBtn" style="display:none;  top: 100px; right: 180px; z-index: 10;">Start</button>
             <button id="pauseBtn" style="display:none;  top: 10px; left: 10px; z-index: 10;">Pause</button>
             <button id="restartBtn" style="display:none; top: 10px; right: 180px; z-index: 10;">Restart</button>
+            <button id="settingsBtn" style="display:none; top: 10px; right: 25px; z-index: 10;">Settings</button>
           </div>
-          <button id="settingsBtn" style="display:none; top: 10px; right: 25px; z-index: 10;">Settings</button>
-          <div id="settingsPanel" style="display:none; position:absolute; top:40px; right:10px; background:#153bbb; padding:0.5rem; width:220px; font-size:0.9rem; border-radius:8px; box-shadow: 0px 4px 10px rgba(0,0,0,0.3); color:white;">
+            <div id="settingsPanel" style="display:none; position:absolute; top:40px; right:10px; background:#153bbb; padding:0.5rem; width:220px; font-size:0.9rem; border-radius:8px; box-shadow: 0px 4px 10px rgba(0,0,0,0.3); color:white;">
             <label>Speed :
               <select id="speedSelect">
                 <option value="slow">Slow</option>
