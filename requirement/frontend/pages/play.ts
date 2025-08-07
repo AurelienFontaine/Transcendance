@@ -24,6 +24,7 @@ export function renderPlay() {
         </div>
         <!-- Conteneur du jeu -->
         <div id="gamecontainer" style="display: none">
+          <div id="app", background = "black"></div>
           <button id="pauseBtn" style="position: absolute; top: 10px; left: 10px; z-index: 10;">Pause</button>
           <button id="restartBtn" style="position: absolute; top: 10px; right: 180px; z-index: 10;">Rejouer</button>
         </div>
@@ -48,12 +49,7 @@ export function renderPlay() {
           <br/>
           <button id="applySettings">Appliquer</button>
         </div>
-          <div id="app"></div>
           <script type="module" src="../handlers/game-front.ts"></script>
-
-          <section id="pong">
-            <iframe src="http://localhost:3010" width="800" height="600" style="border:none;"></iframe>
-          </section>
       </div>
     </div>
   `;

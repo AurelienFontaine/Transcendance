@@ -38,15 +38,14 @@ startBtn.style.fontSize = "1.2rem";
 startBtn.style.display = "none";
 document.body.appendChild(startBtn);
 
-const canvas = document.getElementById("app")!;
-const p5Instance = new p5(sketch(() => latestState));
+let p5Instance: p5 | null = null;
 
 // 🔁 Reaffectation propre
 function pauseSketch() {
-  p5Instance.noLoop();
+  if (p5Instance) p5Instance.noLoop();
 }
 function resumeSketch() {
-  p5Instance.loop();
+  if (p5Instance) p5Instance.loop();
 }
 function updateCanvasVisibility(visible: boolean) {
   const app = document.getElementById("app")!;
@@ -191,7 +190,7 @@ export function startLocalGame() {
   ballColor: localGame.ballColor,
   paddleColor: localGame.paddleColor
 };
-
+  console.log("🎯 initial latestState:", latestState);
   const pause = document.getElementById("pauseBtn") as HTMLButtonElement | null;
   const restart = document.getElementById("restartBtn") as HTMLButtonElement | null;
 
@@ -209,6 +208,7 @@ export function startLocalGame() {
         ballColor: localGame.ballColor,
         paddleColor: localGame.paddleColor
       };
+      console.log("🌀 updated state:", latestState);
     }
   }, 1000 / 60);
   startBtn.onclick = () => {
@@ -274,6 +274,7 @@ export function startLocalGame() {
         ballColor: localGame.ballColor,
         paddleColor: localGame.paddleColor
         };
+        console.log("🌀 updated state:", latestState);
      }
     }, 1000 / 60);
   });
@@ -337,9 +338,18 @@ function renderPage(page: string) {
       menu.style.display = "none";
       gameContainer.style.display = "block";
       updateCanvasVisibility(true);
-      resumeSketch();
-      startLocalGame();
-      break;
+
+      const canvas = document.getElementById("app");
+      if (canvas) {
+        console.log("OUIIIIIIIIIIIIIIIIIIIIIIII");
+        p5Instance = new p5(sketch(() => latestState), canvas);
+        resumeSketch();
+        startLocalGame();
+      } else {
+        console.error("❌ canvas #app not found!");
+      }
+  break;
+
 
     case "game-online":
       cleanupGame();

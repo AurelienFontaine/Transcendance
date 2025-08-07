@@ -262,7 +262,11 @@ function render() {
       const onlineBtn = document.getElementById('onlineBtn');
       const onlineOptions = document.getElementById('onlineOptions');
 
-      localBtn?.addEventListener('click', Game.startLocalGame);
+      localBtn?.addEventListener('click', () => {
+        history.pushState({ page: "game-local" }, "", "#game-local");
+        window.dispatchEvent(new PopStateEvent("popstate", { state: { page: "game-local" } }));
+      });
+
 
       onlineBtn?.addEventListener('click', () => {
         toggleOptions(onlineOptions, localOptions);
