@@ -1,6 +1,6 @@
 //fichier concernant l'authentification OAuth2 avec google
 const axios = require('axios');
-const db = require('./database.js');
+const db = require('../../database.js');
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
@@ -10,7 +10,7 @@ const REDIRECT_URI = process.env.GOOGLE_REDIRECT_URI;
 //fct ajoute les routes necessaires a l'auth google, prend 2 arg:
 // - l'instance du serveur backend "fastify" pour declarer les routes
 // - hashPassword: fct de hashage de mdp
-function registerGoogleAuthRoutes(fastify, hashPassword) {
+function googleAuthBackend(fastify, hashPassword) {
 
 	// Redirection vers la page Google, declare la route /auth/google, ne renvoie pas de contenu html, redirige directement vers google
 	fastify.get('/auth/google', async (request, reply) => {
@@ -91,6 +91,8 @@ function registerGoogleAuthRoutes(fastify, hashPassword) {
 
 			//redirection vers le front port 8080, ajout du token et du nom pour que le front end le stock dans local storage
 			//localStorage (=wone de stockage locale dans le nav, appartient au site, persistante si on ferme l'onglet ou rafraichis, on y accede en javascript)
+			if (firstTime == true)
+				reply.redirect(`http://localhost:8080/choose-password?token=${token}&name=${encodeURIComponent(user.name)}&firstTime=${firstTime}`);
 			reply.redirect(`http://localhost:8080/profile?token=${token}&name=${encodeURIComponent(user.name)}&firstTime=${firstTime}`);
 			//a securiser !!! -> il vaut mieux stocker dans des cookies httpOnly pour eviter les attaques XSS
 		
@@ -104,7 +106,7 @@ function registerGoogleAuthRoutes(fastify, hashPassword) {
 
 //exporte la fonction registerGoogleAuthRoutes, pour qu'elle soit utilisable dans un autre fichier
 //(ce dernier doit contenir : const registerGoogleAuthRoutes = require('./authGoogle');)
-module.exports = registerGoogleAuthRoutes;
+module.exports = googleAuthBackend;
 
 
 /*note:
