@@ -4,7 +4,11 @@ export function renderProfile() {
       <h1 class="text-3xl font-bold mb-6 text-center">Profil</h1>
       
       <div id="showWelcome" style="display:none;"></div>
-      <button id="logoutButton" style="display:none;" class="bg-red-600 hover:bg-red-700 text-white p-2 rounded">Déconnexion</button>
+
+      <div class="flex gap-3 mb-6">
+        <button id="logoutButton" style="display:none;" class="bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded">Déconnexion</button>
+        <button id="changePasswordButton" style="display:none;" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2 rounded">Changer mon mot de passe</button>
+      </div>
 
       <form id="registerForm" class="mb-8 space-y-4">
         <h2 class="text-xl font-semibold">Inscription</h2>
