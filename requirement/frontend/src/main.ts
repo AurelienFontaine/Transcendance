@@ -214,7 +214,7 @@ async function tokenCheck() {
 
 //ftc principale de rendu de la SPA
 function render() {
-  const path = window.location.pathname;
+	const path = window.location.pathname;
   // Lire les paramètres d'URL (token + name)
 	const urlParams = new URLSearchParams(window.location.search);
 	const error = urlParams.get('error');
@@ -222,7 +222,7 @@ function render() {
 	const name = urlParams.get('name');
 	const firstTime = urlParams.get('firstTime'); //premiere connection avec OAuth
 
-    //verification du refus de connection de l'user
+	//verification du refus de connection de l'user
 	if (error === 'access_denied') {
 		alert("Connexion via Google refusée.");
 		//nettoie l'URL pour ne pas garder ?error
@@ -230,11 +230,11 @@ function render() {
   	}
 
 	if (token && name) {
-	localStorage.setItem('token', token);
-	localStorage.setItem('username', name);
-	updateUIForLoggedInUser(name);
-	// Nettoyer l'URL pour ne pas laisser les paramètres visibles
-	window.history.replaceState({}, '', window.location.pathname);
+		localStorage.setItem('token', token);
+		localStorage.setItem('username', name);
+		updateUIForLoggedInUser(name);
+		// Nettoyer l'URL pour ne pas laisser les paramètres visibles
+		window.history.replaceState({}, '', window.location.pathname);
 	}
 
 	if (firstTime === 'true'){ //demande d'initialisation de mdp
@@ -243,62 +243,63 @@ function render() {
 		return;
 	}
 
-	//gerer l'initialisation du mdp pas terminer, a terminer et commenter
-	if (path === '/choose-password') {
-		const token = localStorage.getItem("token");
-
-		if (!token && !firstTime) {
-			alert("Accès refusé. Veuillez vous connecter.");
-			navigate("/profile");
-			return;
-		}
-		ChoosePasswordHandler(navigate);
-	}
-
 	//affiche la page correspondant a l'url ou 404
-  const page = routes[path] || (() => '<h1>404 Not Found</h1>');
-  document.getElementById('app')!.innerHTML = page();
+	const page = routes[path] || (() => '<h1>404 Not Found</h1>');
+	document.getElementById('app')!.innerHTML = page();
 
   // On attend que le DOM ait fini de peindre le contenu HTML injecté
-  requestAnimationFrame(() => { //attends le prochain refresh d'ecran
-    if (path === '/play') {
-      const localBtn = document.getElementById('localBtn');
-      const localOptions = document.getElementById('localOptions');
-      const onlineBtn = document.getElementById('onlineBtn');
-      const onlineOptions = document.getElementById('onlineOptions');
+	requestAnimationFrame(() => { //attends le prochain refresh d'ecran
+		if (path === '/play') {
+				const localBtn = document.getElementById('localBtn');
+				const localOptions = document.getElementById('localOptions');
+				const onlineBtn = document.getElementById('onlineBtn');
+				const onlineOptions = document.getElementById('onlineOptions');
 
-      localBtn?.addEventListener('click', () => {
-        toggleOptions(localOptions, onlineOptions);
-      });
+				localBtn?.addEventListener('click', () => {
+					toggleOptions(localOptions, onlineOptions);
+			});
 
-      onlineBtn?.addEventListener('click', () => {
-        toggleOptions(onlineOptions, localOptions);
-      });
-    }
+			onlineBtn?.addEventListener('click', () => {
+					toggleOptions(onlineOptions, localOptions);
+			});
+		}
 
-    if (path === '/profile') {
-      const registerForm = document.getElementById('registerForm');
-      if (registerForm)
-        registerForm.addEventListener('submit', createUser);
-      const loginForm = document.getElementById('loginForm');
-      if (loginForm) {
-        loginForm.addEventListener('submit', loginUser);
-      }
+		if (path === '/profile') {
+			const registerForm = document.getElementById('registerForm');
+			if (registerForm) registerForm.addEventListener('submit', createUser);
+			
+			const loginForm = document.getElementById('loginForm');
+			if (loginForm) loginForm.addEventListener('submit', loginUser);
 
-      const logoutBtn = document.getElementById('logoutButton');
-      if (logoutBtn) logoutBtn.addEventListener('click', logoutUser);
-    }
-    checkIfLoggedIn(); //verifie la session a chaque affichage
-  });
+			const logoutBtn = document.getElementById('logoutButton');
+			if (logoutBtn) logoutBtn.addEventListener('click', logoutUser);
+
+			const changePwdBtn = document.getElementById('changePasswordButton');
+			if (changePwdBtn) changePwdBtn.addEventListener('click', changePassword);
+		}
+
+		//gerer l'initialisation du mdp pas terminer, a terminer et commenter
+		if (path === '/choose-password') {
+			const token = localStorage.getItem("token");
+
+			if (!token) {
+				alert("Accès refusé. Veuillez vous connecter.");
+				navigate("/profile");
+				return;
+			}
+			ChoosePasswordHandler(navigate);
+		}
+		checkIfLoggedIn(); //verifie la session a chaque affichage
+	});
 }
 
 // Intercept internal navigation pour spa
 document.addEventListener('click', (e) => {
-  const target = e.target as HTMLElement; // ensure it is a DOM element
-  if (target.matches('[data-link]')) {
-    e.preventDefault(); // avoid browser default behavior which would reload the page
-    navigate(target.getAttribute('href')!);
-  }
+	const target = e.target as HTMLElement; // ensure it is a DOM element
+	if (target.matches('[data-link]')) {
+		e.preventDefault(); // avoid browser default behavior which would reload the page
+		navigate(target.getAttribute('href')!);
+	}
 });
 
 // Handle browser back/forward
