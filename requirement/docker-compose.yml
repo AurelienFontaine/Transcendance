@@ -26,5 +26,17 @@ services:
     env_file:
       - .env
 
+  chat:
+    container_name: chat_container
+    build:
+      context: ./chat
+    ports:
+      - "4000:4000"
+    networks:
+      - transcendence
+    env_file:
+      - .env
+    restart: unless-stopped
+
 networks:
   transcendence:

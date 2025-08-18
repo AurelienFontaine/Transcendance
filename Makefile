@@ -27,4 +27,9 @@ destroy: clean
 	docker system prune -a -f
 	rm -rf requirement/backend/data/data.db
 
+log:
+	docker compose logs -f chat
+	docker compose logs backend
+	docker compose logs frontend
+
 .PHONY: all debug start stop clean fclean re destroy
