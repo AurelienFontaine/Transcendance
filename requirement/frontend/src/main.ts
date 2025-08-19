@@ -6,8 +6,12 @@ import { renderHome } from '../pages/home';
 import { renderProfile } from '../pages/profile';
 import { renderPlay } from '../pages/play';
 import { renderChoosePassword } from '../pages/choose-password';
+import { renderChat } from '../pages/chat';
 
 import { ChoosePasswordHandler } from '../handlers/user-handler';
+import { chatHandler } from '../handlers/chat-handler';
+import { refreshChatVisibility } from '../handlers/chat-handler';
+
 
 // Record<K, V> utility typescript type with K as key type and V as value type
 // () => string : function without parameters returning a string
@@ -93,6 +97,9 @@ async function createUser(event: Event) {
 		localStorage.setItem('token', data.token);
 		localStorage.setItem('username', name);
 		updateUIForLoggedInUser(name); //MAJ de l'interface client
+		
+		renderChat();
+		document.dispatchEvent(new Event("userConnected")); //creation event personnalise dans le cas ou l'user se connecte
 	}
 	else {
 		alert(JSON.stringify(data));
@@ -155,6 +162,7 @@ async function checkIfLoggedIn() {
 	const name = localStorage.getItem('username'); // à stocker lors du login si tu veux
 	if (token && name) {
 		updateUIForLoggedInUser(name);
+		refreshChatVisibility(); // maj affichage chat
 	}
 }
 
@@ -179,6 +187,7 @@ function updateUIForLoggedOutUser() {
 function logoutUser() {
 	localStorage.removeItem('token');
 	updateUIForLoggedOutUser();
+	document.dispatchEvent(new Event("userDisconnected")); //crea event perso si deco user
 }
 
 //change mdp si connecte
@@ -304,6 +313,14 @@ document.addEventListener('click', (e) => {
 
 // Handle browser back/forward
 window.addEventListener('popstate', render);
+
+//en dehors du render pour pas recharger le chat avec le SPA
+renderChat(); // bouton + fenetre
+chatHandler(); // interactions
+
+//listen event de deco/reco
+document.addEventListener("userConnected", refreshChatVisibility);
+document.addEventListener("userDisconnected", refreshChatVisibility);
 
 // Initial render
 render();
