@@ -1,23 +1,27 @@
-import Fastify from "fastify";
+// src/index.ts
+import { WebSocketServer } from 'ws';
 
-const PORT = Number(process.env.CHAT_PORT || 4000);
-const HOST = "0.0.0.0";
+const PORT = 3001;
+const wss = new WebSocketServer({ port: PORT });
 
-async function main() {
-	const app = Fastify({ logger: true });
+console.log(`🚀 WebSocket chat server running on ws://localhost:${PORT}`);
 
-	// Healthcheck minimal
-	app.get("/health", async (_req, _rep) => {
-		return { status: "ok" };
+wss.on('connection', (ws) => {
+	console.log("✅ Client connecté");
+
+	ws.on('message', (data) => {
+		const message = data.toString();
+		console.log("📨 Message reçu:", message);
+
+		// Réémet le message à tous les clients connectés
+		wss.clients.forEach((client) => {
+			if (client.readyState === ws.OPEN) {
+				client.send(message);
+			}
+		});
 	});
 
-	try {
-		await app.listen({ host: HOST, port: PORT });
-		app.log.info(`chat service listening on http://${HOST}:${PORT}`);
-	} catch (err) {
-		app.log.error(err);
-		process.exit(1);
-	}
-}
-
-main();
+	ws.on('close', () => {
+		console.log("❌ Client déconnecté");
+	});
+});

@@ -98,8 +98,7 @@ async function createUser(event: Event) {
 		localStorage.setItem('username', name);
 		updateUIForLoggedInUser(name); //MAJ de l'interface client
 		
-		renderChat();
-		document.dispatchEvent(new Event("userConnected")); //creation event personnalise dans le cas ou l'user se connecte
+		//chatInit();
 	}
 	else {
 		alert(JSON.stringify(data));
@@ -153,6 +152,7 @@ function updateUIForLoggedInUser(username: string) {
 	}
 	const googleBtn = document.getElementById('googleLoginButton');
 	if (googleBtn) googleBtn.style.display = 'none';
+	chatInit();
 }
 
 //affichage pour user deconnecte, maj UI
@@ -186,6 +186,7 @@ function updateUIForLoggedOutUser() {
 //deconnection, supp token, reinitialise l'affichage
 function logoutUser() {
 	localStorage.removeItem('token');
+	localStorage.removeItem("chatHistory");
 	updateUIForLoggedOutUser();
 	document.dispatchEvent(new Event("userDisconnected")); //crea event perso si deco user
 }
@@ -218,6 +219,11 @@ async function tokenCheck() {
 	}
 }
 
+function chatInit(){
+	renderChat();                        // crée le bouton et la fenêtre
+	chatHandler();                       // ajoute les interactions
+	document.dispatchEvent(new Event("userConnected")); // rend le bouton visible
+}
 
 ///////// RENDER DE LA PAGE //////////////////////////////////////////
 
@@ -299,6 +305,10 @@ function render() {
 			ChoosePasswordHandler(navigate);
 		}
 		checkIfLoggedIn(); //verifie la session a chaque affichage
+		if (localStorage.getItem('token')){
+			chatHandler();
+			refreshChatVisibility();
+		}
 	});
 }
 

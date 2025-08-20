@@ -1,4 +1,5 @@
 export function renderChat() { //interface visuelle chat
+	if (document.getElementById("chat-toggle")) return; //verif bouton exist
 	const token = localStorage.getItem("token");
 	if (!token) {
 		console.info("chat unavailable : user not connected");

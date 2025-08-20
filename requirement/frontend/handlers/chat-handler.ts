@@ -14,6 +14,15 @@ export function chatHandler() {
 	if (!chatMessages)	console.warn("Zone 'chat-messages' introuvable.");
 	if (!chatToggle || !chatWindow || !chatInput || !chatMessages) return;
 
+	// Recharger l'historique du chat depuis localStorage
+	const history = JSON.parse(localStorage.getItem("chatHistory") || "[]");
+	chatMessages.innerHTML = "";
+	for (const content of history) {
+		const p = document.createElement("p");
+		p.textContent = content;
+		chatMessages.appendChild(p);
+	}
+
 	/** fonction flechee anonyme callback:
 	 * fonction flechee = syntaxe () => {....}
 	 * anonyme = n'a pas de nom
@@ -32,9 +41,10 @@ export function chatHandler() {
 
 	chatInput.addEventListener("keypress", (e) => {
 		if (e.key == "Enter" && chatInput.value.trim() !== ""){
-			const msg = document.createElement("div"); //cree bulle msg
+			/*const msg = document.createElement("div"); //cree bulle msg
 			msg.textContent = `Moi : ${chatInput.value}`; // insere txt
-			chatMessages.appendChild(msg); //ajout msg zone msg
+			chatMessages.appendChild(msg); //ajout msg zone msg*/
+			appendMessageToChat(`Moi : ${chatInput.value}`);
 			chatInput.value = ""; //initia champ
 		}
 	});
@@ -56,4 +66,18 @@ export function refreshChatVisibility() {
 		chatToggle.style.display = "none";
 		chatWindow.style.display = "none";
 	}
+}
+
+function appendMessageToChat(content: string) {
+	const chatMessages = document.getElementById("chat-messages");
+	if (!chatMessages) return;
+
+	const p = document.createElement("p");
+	p.textContent = content;
+	chatMessages.appendChild(p);
+
+	// Sauvegarde dans localStorage
+	const history = JSON.parse(localStorage.getItem("chatHistory") || "[]");
+	history.push(content);
+	localStorage.setItem("chatHistory", JSON.stringify(history));
 }
