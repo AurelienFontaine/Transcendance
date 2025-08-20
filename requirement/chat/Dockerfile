@@ -6,6 +6,8 @@ COPY package.json tsconfig.json ./
 
 RUN npm install
 
+RUN npm install --save-dev @types/ws
+
 COPY src ./src
 
 RUN npm run build

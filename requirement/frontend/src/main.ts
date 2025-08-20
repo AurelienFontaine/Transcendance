@@ -98,7 +98,7 @@ async function createUser(event: Event) {
 		localStorage.setItem('username', name);
 		updateUIForLoggedInUser(name); //MAJ de l'interface client
 		
-		//chatInit();
+		chatInit();
 	}
 	else {
 		alert(JSON.stringify(data));
@@ -186,7 +186,7 @@ function updateUIForLoggedOutUser() {
 //deconnection, supp token, reinitialise l'affichage
 function logoutUser() {
 	localStorage.removeItem('token');
-	localStorage.removeItem("chatHistory");
+	clearChatHistory();
 	updateUIForLoggedOutUser();
 	document.dispatchEvent(new Event("userDisconnected")); //crea event perso si deco user
 }
@@ -220,9 +220,11 @@ async function tokenCheck() {
 }
 
 function chatInit(){
-	renderChat();                        // crée le bouton et la fenêtre
-	chatHandler();                       // ajoute les interactions
-	document.dispatchEvent(new Event("userConnected")); // rend le bouton visible
+	if (!localStorage.getItem("token")) return;
+	renderChat(); // crée le bouton et la fenêtre
+	chatHandler(); // ajoute les interactions
+	refreshChatVisibility(); // maj visuelle
+	document.dispatchEvent(new Event("userConnected"));
 }
 
 ///////// RENDER DE LA PAGE //////////////////////////////////////////
@@ -305,10 +307,6 @@ function render() {
 			ChoosePasswordHandler(navigate);
 		}
 		checkIfLoggedIn(); //verifie la session a chaque affichage
-		if (localStorage.getItem('token')){
-			chatHandler();
-			refreshChatVisibility();
-		}
 	});
 }
 

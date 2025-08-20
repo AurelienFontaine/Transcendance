@@ -1,3 +1,6 @@
+let socket: WebSocket | null = null;
+let sessionMessages: string[] = [];
+
 export function chatHandler() {
 	//recup elements html dans DOM (cree par renderChat)
 	const chatToggle	= document.getElementById("chat-toggle");
@@ -15,12 +18,9 @@ export function chatHandler() {
 	if (!chatToggle || !chatWindow || !chatInput || !chatMessages) return;
 
 	// Recharger l'historique du chat depuis localStorage
-	const history = JSON.parse(localStorage.getItem("chatHistory") || "[]");
 	chatMessages.innerHTML = "";
-	for (const content of history) {
-		const p = document.createElement("p");
-		p.textContent = content;
-		chatMessages.appendChild(p);
+	for (const content of sessionMessages) {
+		appendMessageToChat(content);
 	}
 
 	/** fonction flechee anonyme callback:
@@ -39,13 +39,35 @@ export function chatHandler() {
 		chatWindow.style.display = chatWindow.style.display === "none" ? "block" : "none";
 	});
 
+	if (!socket || socket.readyState !== WebSocket.OPEN) {
+		socket = new WebSocket("ws://localhost:4000"); // ⚠️ adapte si en prod
+
+		socket.addEventListener("open", () => {
+			console.log("✅ Connecté au WebSocket chat");
+		});
+
+		socket.addEventListener("message", (event) => {
+			const message = event.data;
+			appendMessageToChat(message);
+			sessionMessages.push(message);
+		});
+
+		socket.addEventListener("close", () => {
+			console.log("❌ Déconnecté du WebSocket chat");
+		});
+
+		socket.addEventListener("error", (err) => {
+			console.error("⛔ Erreur WebSocket", err);
+		});
+	}
+
 	chatInput.addEventListener("keypress", (e) => {
-		if (e.key == "Enter" && chatInput.value.trim() !== ""){
-			/*const msg = document.createElement("div"); //cree bulle msg
-			msg.textContent = `Moi : ${chatInput.value}`; // insere txt
-			chatMessages.appendChild(msg); //ajout msg zone msg*/
-			appendMessageToChat(`Moi : ${chatInput.value}`);
-			chatInput.value = ""; //initia champ
+		if (e.key === "Enter" && chatInput.value.trim() !== "") {
+			const message = `Moi : ${chatInput.value}`;
+			appendMessageToChat(message);
+			sessionMessages.push(message);
+			socket?.send(message);
+			chatInput.value = "";
 		}
 	});
 }
@@ -68,6 +90,7 @@ export function refreshChatVisibility() {
 	}
 }
 
+// Affiche un message dans la zone chat
 function appendMessageToChat(content: string) {
 	const chatMessages = document.getElementById("chat-messages");
 	if (!chatMessages) return;
@@ -75,9 +98,8 @@ function appendMessageToChat(content: string) {
 	const p = document.createElement("p");
 	p.textContent = content;
 	chatMessages.appendChild(p);
+}
 
-	// Sauvegarde dans localStorage
-	const history = JSON.parse(localStorage.getItem("chatHistory") || "[]");
-	history.push(content);
-	localStorage.setItem("chatHistory", JSON.stringify(history));
+export function clearChatHistory() {
+	sessionMessages = [];
 }
