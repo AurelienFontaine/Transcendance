@@ -4,6 +4,7 @@ const bcrypt = require('bcrypt'); //hashage de mdp robuste et bcp utilise + util
 const db = require('./database.js');
 const googleAuthBackend = require('./routes/auth/google-auth');
 const choosePasswordBackend = require('./routes/auth/choose-password-backend');
+const friendsBackend = require('./routes/user-managment/friends-backend');
 const jwt = require('@fastify/jwt');
 const { verify } = require('crypto');
 const { read } = require('fs');
@@ -189,6 +190,8 @@ async function start(){
 
 	//routes/auth/choose-password-backend.js -> changer le mdp
 	choosePasswordBackend(fastify, hashPassword);
+
+	friendsBackend(fastify);
 
 	//Demarrer le serveur
 	
