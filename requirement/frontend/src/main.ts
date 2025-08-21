@@ -10,8 +10,7 @@ import { renderChat } from '../pages/chat';
 
 import { ChoosePasswordHandler } from '../handlers/user-handler';
 import { chatHandler } from '../handlers/chat-handler';
-import { refreshChatVisibility } from '../handlers/chat-handler';
-
+import { clearChatHistory } from '../handlers/chat-handler';
 
 // Record<K, V> utility typescript type with K as key type and V as value type
 // () => string : function without parameters returning a string
@@ -21,6 +20,7 @@ const routes: Record<string, () => string> = {
 	'/profile': renderProfile,
 	'/play': renderPlay,
 	'/choose-password': renderChoosePassword,
+	'/chat': renderChat,
 };// objet, associe chaque chemin url a une fonction qui genere du html
 
 // window.history.pushState(state, title, url) adds a new entry to the browser history without reloading the page
@@ -97,8 +97,6 @@ async function createUser(event: Event) {
 		localStorage.setItem('token', data.token);
 		localStorage.setItem('username', name);
 		updateUIForLoggedInUser(name); //MAJ de l'interface client
-		
-		chatInit();
 	}
 	else {
 		alert(JSON.stringify(data));
@@ -152,7 +150,9 @@ function updateUIForLoggedInUser(username: string) {
 	}
 	const googleBtn = document.getElementById('googleLoginButton');
 	if (googleBtn) googleBtn.style.display = 'none';
-	chatInit();
+
+	const chatLink = document.getElementById('chatLink');
+	if (chatLink) chatLink.style.display = 'inline-block';
 }
 
 //affichage pour user deconnecte, maj UI
@@ -160,10 +160,7 @@ async function checkIfLoggedIn() {
 	await tokenCheck(); //verif la validite du token en back
 	const token = localStorage.getItem('token');
 	const name = localStorage.getItem('username'); // à stocker lors du login si tu veux
-	if (token && name) {
-		updateUIForLoggedInUser(name);
-		refreshChatVisibility(); // maj affichage chat
-	}
+	if (token && name) updateUIForLoggedInUser(name);
 }
 
 //MAJ si user connecte
@@ -181,6 +178,9 @@ function updateUIForLoggedOutUser() {
 	if (registerForm) registerForm.style.display = 'block';
 	const googleBtn = document.getElementById('googleLoginButton');
 	if (googleBtn) googleBtn.style.display = 'block';
+
+	const chatLink = document.getElementById('chatLink');
+	if (chatLink) chatLink.style.display = 'none';
 }
 
 //deconnection, supp token, reinitialise l'affichage
@@ -217,14 +217,6 @@ async function tokenCheck() {
 		updateUIForLoggedOutUser();
 		}
 	}
-}
-
-function chatInit(){
-	if (!localStorage.getItem("token")) return;
-	renderChat(); // crée le bouton et la fenêtre
-	chatHandler(); // ajoute les interactions
-	refreshChatVisibility(); // maj visuelle
-	document.dispatchEvent(new Event("userConnected"));
 }
 
 ///////// RENDER DE LA PAGE //////////////////////////////////////////
@@ -306,6 +298,17 @@ function render() {
 			}
 			ChoosePasswordHandler(navigate);
 		}
+
+		if (path == '/chat'){
+			const token = localStorage.getItem("token");
+
+			if (!token) {
+				alert("Accès refusé. Veuillez vous connecter.");
+				navigate("/profile");
+				return;
+			}
+			chatHandler();
+		}
 		checkIfLoggedIn(); //verifie la session a chaque affichage
 	});
 }
@@ -321,14 +324,6 @@ document.addEventListener('click', (e) => {
 
 // Handle browser back/forward
 window.addEventListener('popstate', render);
-
-//en dehors du render pour pas recharger le chat avec le SPA
-renderChat(); // bouton + fenetre
-chatHandler(); // interactions
-
-//listen event de deco/reco
-document.addEventListener("userConnected", refreshChatVisibility);
-document.addEventListener("userDisconnected", refreshChatVisibility);
 
 // Initial render
 render();

@@ -3,19 +3,15 @@ let sessionMessages: string[] = [];
 
 export function chatHandler() {
 	//recup elements html dans DOM (cree par renderChat)
-	const chatToggle	= document.getElementById("chat-toggle");
-	const chatWindow	= document.getElementById("chat-window");
 	const chatMessages	= document.getElementById("chat-messages"); // type : HTMLElement | null, vaut null de base pour eviter les erreurs d'exec
 	const chatInput		= document.getElementById("chat-input") as HTMLInputElement; // type : HTMLInputElement -> acces a .value, .checked, .disabled, etc...
 	
 	/* verif: si bug -> chat.ts ne s'execute pas correctement;
 	si changement des id; si chat charge av DOM pret (pas DOMContentLoaded);
 	si appel chatHandlers sans renderChat ou avant	*/
-	if (!chatToggle)	console.warn("Bouton 'chat-toggle' introuvable."); //affichee avertissement dans console, non bloquant
-	if (!chatWindow)	console.warn("Fenêtre 'chat-window' introuvable.");
 	if (!chatInput)		console.warn("Champ 'chat-input' introuvable.");
 	if (!chatMessages)	console.warn("Zone 'chat-messages' introuvable.");
-	if (!chatToggle || !chatWindow || !chatInput || !chatMessages) return;
+	if (!chatInput || !chatMessages) return;
 
 	// Recharger l'historique du chat depuis localStorage
 	chatMessages.innerHTML = "";
@@ -35,9 +31,6 @@ export function chatHandler() {
 	/** si chatWindow.style.display est none alors met block sinon remet none
 	 * none == cachee completement ; block = affichee nom comme un block (div par default)
 	*/
-	chatToggle.addEventListener("click", () => {
-		chatWindow.style.display = chatWindow.style.display === "none" ? "block" : "none";
-	});
 
 	if (!socket || socket.readyState !== WebSocket.OPEN) {
 		socket = new WebSocket("ws://localhost:4000"); // ⚠️ adapte si en prod
@@ -70,24 +63,6 @@ export function chatHandler() {
 			chatInput.value = "";
 		}
 	});
-}
-
-export function refreshChatVisibility() {
-	const token = localStorage.getItem("token");
-	const chatToggle = document.getElementById("chat-toggle");
-	const chatWindow = document.getElementById("chat-window");
-
-	if (!chatToggle || !chatWindow) {
-		console.warn("Chat elements not found during visibility refresh.");
-		return;
-	}	
-
-	if (token) {
-		chatToggle.style.display = "block";
-	} else {
-		chatToggle.style.display = "none";
-		chatWindow.style.display = "none";
-	}
 }
 
 // Affiche un message dans la zone chat

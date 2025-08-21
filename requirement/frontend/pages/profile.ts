@@ -8,7 +8,8 @@ export function renderProfile() {
       <div class="flex gap-3 mb-6">
         <button id="logoutButton" style="display:none;" class="bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded">Déconnexion</button>
         <button id="changePasswordButton" style="display:none;" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2 rounded">Changer mon mot de passe</button>
-      </div>
+		<a href="/chat" data-link id="chatLink" style="display:none;" class="bg-purple-600 hover:bg-purple-700 text-white px-3 py-2 rounded"> <3 chat! </a>
+	  </div>
 
       <form id="registerForm" class="mb-8 space-y-4">
         <h2 class="text-xl font-semibold">Inscription</h2>
