@@ -4,10 +4,10 @@ import "./styles.css";
 //import vues/pages du site (SPA)
 import { renderHome } from '../pages/home';
 import { renderProfile } from '../pages/profile';
-import { renderPlay } from '../pages/play';
+import { renderPlay, setupPlayPage } from '../pages/play';
 import { renderChoosePassword } from '../pages/choose-password';
-
 import { setupChoosePasswordHandler } from '../handlers/user-handler';
+
 //import { handleGame } from '../handlers/game';
 
 // Record<K, V> utility typescript type with K as key type and V as value type
@@ -256,25 +256,47 @@ function render() {
 
   // On attend que le DOM ait fini de peindre le contenu HTML injecté
   requestAnimationFrame(() => { //attends le prochain refresh d'ecran
+    // if (path === '/play') {
+    //   const localBtn = document.getElementById('localBtn');
+    //   const localOptions = document.getElementById('localOptions');
+    //   const onlineBtn = document.getElementById('onlineBtn');
+    //   const onlineOptions = document.getElementById('onlineOptions');
+
+    // localBtn?.addEventListener('click', () => {
+    //   history.pushState({ page: "game-local" }, "", "#game-local");
+
+    //   // ⚠️ Attendre que le DOM soit peint avant d’appeler Game.__forceRender
+    //   requestAnimationFrame(() => {
+    //     Game.__forceRender("game-local");
+    //   });
+    // });
+    //   onlineBtn?.addEventListener('click', () => {
+    //     toggleOptions(onlineOptions, localOptions);
+    //   });
+    // }
+
     if (path === '/play') {
-      const localBtn = document.getElementById('localBtn');
-      const localOptions = document.getElementById('localOptions');
+  // 1) Wire the tournament UI (register players, start tournament, scoring)
+  //    This function should be idempotent (won’t double-attach on re-render).
+      setupPlayPage();
+
+      // 2) Wire your game mode buttons (local / online) like before
+      const localBtn  = document.getElementById('localBtn');
       const onlineBtn = document.getElementById('onlineBtn');
-      const onlineOptions = document.getElementById('onlineOptions');
 
-    localBtn?.addEventListener('click', () => {
-      history.pushState({ page: "game-local" }, "", "#game-local");
-
-      // ⚠️ Attendre que le DOM soit peint avant d’appeler Game.__forceRender
-      requestAnimationFrame(() => {
-        Game.__forceRender("game-local");
+      localBtn?.addEventListener('click', () => {
+        history.pushState({ page: 'game-local' }, '', '#game-local');
+        // wait one paint so the DOM is present, then render the game
+        requestAnimationFrame(() => {
+          Game.__forceRender('game-local');
+        });
       });
-    });
-
-
 
       onlineBtn?.addEventListener('click', () => {
-        toggleOptions(onlineOptions, localOptions);
+        history.pushState({ page: 'game-online' }, '', '#game-online');
+        requestAnimationFrame(() => {
+          Game.__forceRender('game-online');
+        });
       });
     }
 

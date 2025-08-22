@@ -30,3 +30,18 @@ export type GameState = {
   ballColor?: string;
   paddleColor?: string;
 };
+
+export type MatchResult = {
+  p1: string;
+  p2: string;
+  s1: number;
+  s2: number;
+};
+
+export type Standing = {
+  name: string;
+  played: number;
+  wins: number;
+  losses: number;
+  points: number; 
+};

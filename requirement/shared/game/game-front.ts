@@ -410,3 +410,76 @@ window.addEventListener("popstate", () => {
   const page = history.state?.page || "menu";
   renderPage(page);
 });
+
+
+// ==== TOURNOI LOCAL ====
+
+export function prepareLocalBoard() {
+  const canvas = document.getElementById("app");
+  if (canvas) {
+    // évite doublons si un sketch existait déjà
+    (window as any).__p5Instance?.remove?.();
+    const instance = new p5(sketch(() => latestState), canvas);
+    (window as any).__p5Instance = instance;
+    p5Instance = instance;
+    updateCanvasVisibility(true);
+  }
+}
+
+/**
+ * Lance un match local p1 vs p2 et appelle onEnd({p1,p2,s1,s2}) quand le match se termine.
+ */
+export function startLocalMatch(
+  p1: string,
+  p2: string,
+  onEnd: (res: { p1: string; p2: string; s1: number; s2: number }) => void
+) {
+  // prépare le canvas
+  prepareLocalBoard();
+
+  mode = "local";
+  localGame = new PongGame();
+  latestState = {
+    ...localGame.state,
+    ballColor: localGame.ballColor,
+    paddleColor: localGame.paddleColor,
+  };
+
+  // montre les boutons si besoin
+  getStartBtn().style.display = "block";
+  getPauseBtn().style.display = "block";
+  getRestartBtn().style.display = "block";
+  getSettingsBtn().style.display = "block";
+
+  if (localLoop) clearInterval(localLoop);
+  isPaused = false;
+
+  // démarre directement (ou tu peux attendre le bouton Start si tu veux)
+  localGame.resetBall();
+  localGame.Started = true;
+
+  localLoop = window.setInterval(() => {
+    if (!localGame) return;
+    if (!isPaused) localGame.update();
+    latestState = {
+      ...localGame.state,
+      ballColor: localGame.ballColor,
+      paddleColor: localGame.paddleColor,
+    };
+
+    // Détection fin de match
+    if (localGame.GameOver) {
+      const s1 = localGame.state.score.p1 ?? 0;
+      const s2 = localGame.state.score.p2 ?? 0;
+
+      clearInterval(localLoop!);
+      localLoop = undefined;
+
+      // masque Start
+      getStartBtn().style.display = "none";
+
+      // callback tournoi
+      onEnd({ p1, p2, s1, s2 });
+    }
+  }, 1000 / 60);
+}
