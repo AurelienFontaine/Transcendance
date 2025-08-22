@@ -9,7 +9,7 @@ module.exports = function (fastify) {
 
 		//verifie validité du nom
 		if (!friendName || typeof friendName !== 'string') {
-			return reply.status(400).send({ error: "Nom invalide." });
+			return reply.status(400).send({ error: "add friend not possible: Nom invalide." });
 		}
 
 		//cherche l'utilisateur correspondant au nom
@@ -38,6 +38,8 @@ module.exports = function (fastify) {
 
 			return { success: true };
 		} catch (err) {
+			console.error("❌ Erreur SQL lors de l'ajout d'ami :", err.message);
+			console.error("Stack :", err.stack);
 			return reply.status(500).send({ error: "Erreur lors de l'ajout." });
 		}
 	});
@@ -45,15 +47,15 @@ module.exports = function (fastify) {
 	// Supprimer un ami (par nom)
 	fastify.post('/friends/remove', { preHandler: [fastify.authenticate] }, async (request, reply) => {
 		const userId = request.user.id;
-		const { friendName } = request.body;
+		const { unfriendName } = request.body;
 
 		// Vérifie la validité du nom
-		if (!friendName || typeof friendName !== 'string') {
-			return reply.status(400).send({ error: "Nom invalide." });
+		if (!unfriendName || typeof unfriendName !== 'string') {
+			return reply.status(400).send({ error: "unfriend not possible: Nom invalide." });
 		}
 
 		// Recherche l'ami dans la table users
-		const friend = fastify.db.prepare('SELECT id FROM users WHERE name = ?').get(friendName);
+		const friend = fastify.db.prepare('SELECT id FROM users WHERE name = ?').get(unfriendName);
 		if (!friend) return reply.status(404).send({ error: "Utilisateur introuvable." });
 
 		// Vérifie si la relation existe
@@ -72,6 +74,7 @@ module.exports = function (fastify) {
 
 			return { success: true, message: "Ami supprimé avec succès." };
 		} catch (err) {
+			console.error("Erreur SQL suppression:", err);
 			return reply.status(500).send({ error: "Erreur lors de la suppression de l'ami." });
 		}
 	});

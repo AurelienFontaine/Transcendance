@@ -12,6 +12,8 @@ const { read } = require('fs');
 
 // backend/index.js
 const fastify = Fastify({ logger: true})
+fastify.decorate('db', db);
+
 
 db.exec('PRAGMA foreign_keys = ON');
 async function start(){
