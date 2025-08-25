@@ -10,7 +10,6 @@ import { renderChat } from '../pages/chat';
 
 import { ChoosePasswordHandler } from '../handlers/user-handler';
 import { chatHandler } from '../handlers/chat-handler';
-import { clearChatHistory } from '../handlers/chat-handler';
 
 // Record<K, V> utility typescript type with K as key type and V as value type
 // () => string : function without parameters returning a string
@@ -186,7 +185,6 @@ function updateUIForLoggedOutUser() {
 //deconnection, supp token, reinitialise l'affichage
 function logoutUser() {
 	localStorage.removeItem('token');
-	clearChatHistory();
 	updateUIForLoggedOutUser();
 	document.dispatchEvent(new Event("userDisconnected")); //crea event perso si deco user
 }
