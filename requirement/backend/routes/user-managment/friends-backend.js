@@ -38,8 +38,6 @@ module.exports = function (fastify) {
 
 			return { success: true };
 		} catch (err) {
-			console.error("❌ Erreur SQL lors de l'ajout d'ami :", err.message);
-			console.error("Stack :", err.stack);
 			return reply.status(500).send({ error: "Erreur lors de l'ajout." });
 		}
 	});
@@ -74,7 +72,6 @@ module.exports = function (fastify) {
 
 			return { success: true, message: "Ami supprimé avec succès." };
 		} catch (err) {
-			console.error("Erreur SQL suppression:", err);
 			return reply.status(500).send({ error: "Erreur lors de la suppression de l'ami." });
 		}
 	});
