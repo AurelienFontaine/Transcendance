@@ -70,30 +70,35 @@ export async function chatHandler() {
 	/* verif: si bug -> chat.ts ne s'execute pas correctement;
 	si changement des id; si chat charge av DOM pret (pas DOMContentLoaded);
 	si appel chatHandlers sans renderChat ou avant	*/
+	console.log("DEBUG : friendsList =", friendsList);
+	console.log("DEBUG : chatSection =", chatSection);
+	console.log("DEBUG : chatWith =", chatWith);
+	console.log("DEBUG : chatMessages =", chatMessages);
+	console.log("DEBUG : chatInput =", chatInput);
+
 	if (!chatInput)		console.warn("Champ 'chat-input' introuvable.");
 	if (!chatMessages)	console.warn("Zone 'chat-messages' introuvable.");
-	if (!friendsList || !chatSection || !chatWith || !chatMessages || !chatInput) return;
+	if (!friendsList || !chatSection || !chatWith ) return;
+	//if (!chatInput || !chatMessages) return;
 
 	const friends = await fetchFriends();
+	console.log("Amis récupérés :", friends);
 	friendsList.innerHTML = "";
 
+	if (!Array.isArray(friends)) {
+		console.warn("❌ Mauvais format : friends n'est pas un tableau !");
+		return;
+	}
+
+	if (friends.length === 0) {
+		console.warn("ℹ️ Aucun ami trouvé.");
+	}
+
 	friends.forEach(friend => {
+		console.log("Ajout de l'ami :", friend);
 		const li = document.createElement("li");
 		li.textContent = friend.name;
 		li.style.cursor = "pointer";
-
-		// Actions (supprimer bouton)
-		const btns = document.createElement("div");
-		btns.style.marginTop = "4px";
-
-		li.appendChild(btns);
-
-		li.addEventListener("click", () => {
-			chatWith.textContent = `Chat avec ${friend.name}`;
-			chatSection.style.display = "block";
-			chatMessages.innerHTML = "";
-			// ⚠️ initWebSocket(friend.id); ← Pour messages privés plus tard
-		});
 
 		friendsList.appendChild(li);
 	});
@@ -149,6 +154,8 @@ export async function chatHandler() {
 			chatInput.value = "";
 		}
 	});
+	console.log("friendsList.innerHTML final :", friendsList?.innerHTML);
+
 }
 
 // Affiche un message dans la zone chat
@@ -179,3 +186,5 @@ async function fetchFriends(): Promise<{ id : number, name: string }[]> {
 export function clearChatHistory() {
 	sessionMessages = [];
 }
+
+
