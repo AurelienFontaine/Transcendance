@@ -65,7 +65,7 @@ function toggleOptions(showElem: HTMLElement | null, hideElem: HTMLElement | nul
 
 // GAME PONG ///////////////////////////////////////////////
 
-import * as Game from '../handlers/game/game-front';
+// import * as Game from '../handlers/game/game-front';
 
 
 // Authentication //////////////////////////////////
@@ -280,24 +280,24 @@ function render() {
   //    This function should be idempotent (won’t double-attach on re-render).
       setupPlayPage();
 
-      // 2) Wire your game mode buttons (local / online) like before
-      const localBtn  = document.getElementById('localBtn');
-      const onlineBtn = document.getElementById('onlineBtn');
+      // // 2) Wire your game mode buttons (local / online) like before
+      // const localBtn  = document.getElementById('localBtn');
+      // const onlineBtn = document.getElementById('onlineBtn');
 
-      localBtn?.addEventListener('click', () => {
-        history.pushState({ page: 'game-local' }, '', '#game-local');
-        // wait one paint so the DOM is present, then render the game
-        requestAnimationFrame(() => {
-          Game.__forceRender('game-local');
-        });
-      });
+      // localBtn?.addEventListener('click', () => {
+      //   history.pushState({ page: 'game-local' }, '', '#game-local');
+      //   // wait one paint so the DOM is present, then render the game
+      //   requestAnimationFrame(() => {
+      //     Game.__forceRender('game-local');
+      //   });
+      // });
 
-      onlineBtn?.addEventListener('click', () => {
-        history.pushState({ page: 'game-online' }, '', '#game-online');
-        requestAnimationFrame(() => {
-          Game.__forceRender('game-online');
-        });
-      });
+      // onlineBtn?.addEventListener('click', () => {
+      //   history.pushState({ page: 'game-online' }, '', '#game-online');
+      //   requestAnimationFrame(() => {
+      //     Game.__forceRender('game-online');
+      //   });
+      // });
     }
 
     if (path === '/profile') {

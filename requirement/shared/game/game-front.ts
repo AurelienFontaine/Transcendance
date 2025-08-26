@@ -26,6 +26,10 @@ let ws: WebSocket | null = null;
 let localGame: PongGame | null = null;
 let localLoop: number | undefined;
 
+let onMatchFinished: ((s1: number, s2: number) => void) | null = null;
+let lastGameOver = false;
+let localMatchOnceFired = false;
+
 function getStartBtn() {
   return document.getElementById("startBtn") as HTMLButtonElement;
 }
@@ -45,6 +49,37 @@ function getSettingsBtn() {
 }
 
 let p5Instance: p5 | null = null;
+
+export function showBoardForTournament() {
+  // Monte #game-local sans démarrer de partie
+  const menu = document.getElementById("menu")!;
+  const gameContainer = document.getElementById("gamecontainer")!;
+
+  cleanupGame();              // stoppe boucles/eventuels ws
+  
+  
+  const canvasRoot = document.getElementById("app");
+  if (canvasRoot) {
+    // 🔒 Garantit un seul canvas
+    canvasRoot.querySelectorAll("canvas").forEach(c => c.remove());
+  }
+    menu.style.display = "none";
+    gameContainer.style.display = "block";
+
+    if (p5Instance) {
+      p5Instance.remove();
+      p5Instance = null;
+    }
+    p5Instance = new p5(sketch(() => latestState), canvasRoot);
+    resumeSketch();           // commence le draw() p5
+
+  // on n’appelle PAS startLocalGame ici (le tournoi gère la partie)
+  getStartBtn().style.display = "block";
+  getPauseBtn().style.display = "block";
+  getRestartBtn().style.display = "block";
+  getSettingsBtn().style.display = "block";
+  updateCanvasVisibility(true);
+}
 
 // 🔁 Reaffectation propre
 function pauseSketch() {
@@ -331,6 +366,7 @@ function renderPage(page: string) {
 
       const canvas = document.getElementById("app");
       if (canvas) {
+        canvas.querySelectorAll("canvas").forEach(c => c.remove());
         if (p5Instance) {
           p5Instance.remove();
           p5Instance = null;
@@ -376,7 +412,6 @@ function renderPage(page: string) {
       getPauseBtn().style.display = "block";
       getRestartBtn().style.display = "block";
       getSettingsBtn().style.display = "block";
-      // __forceRender("game-local");
       updateCanvasVisibility(true);
       break;
 
@@ -395,21 +430,21 @@ function renderPage(page: string) {
 }
 
 // Init
-window.addEventListener("DOMContentLoaded", () => {
-  const localBtn = document.getElementById("localBtn")!;
-  const onlineBtn = document.getElementById("onlineBtn")!;
-  const page = history.state?.page || "menu";
+// window.addEventListener("DOMContentLoaded", () => {
+//   const localBtn = document.getElementById("localBtn")!;
+//   const onlineBtn = document.getElementById("onlineBtn")!;
+//   const page = history.state?.page || "menu";
 
-  renderPage(page);
+//   renderPage(page);
 
-  localBtn.addEventListener("click", () => navigateTo("game-local"));
-  onlineBtn.addEventListener("click", () => navigateTo("game-online"));
-});
+//   localBtn.addEventListener("click", () => navigateTo("game-local"));
+//   onlineBtn.addEventListener("click", () => navigateTo("game-online"));
+// });
 
-window.addEventListener("popstate", () => {
-  const page = history.state?.page || "menu";
-  renderPage(page);
-});
+// window.addEventListener("popstate", () => {
+//   const page = history.state?.page || "menu";
+//   renderPage(page);
+// });
 
 
 // ==== TOURNOI LOCAL ====
@@ -426,48 +461,75 @@ export function prepareLocalBoard() {
   }
 }
 
+function getScoresFromState(st: any): { s1: number; s2: number } {
+  const sc = st?.score || {};
+  // essaie p1/p2 puis left/right puis 0
+  const s1 = (typeof sc.p1 === "number" ? sc.p1 : (typeof sc.left === "number" ? sc.left : 0)) | 0;
+  const s2 = (typeof sc.p2 === "number" ? sc.p2 : (typeof sc.right === "number" ? sc.right : 0)) | 0;
+  return { s1, s2 };
+}
+
 /**
  * Lance un match local p1 vs p2 et appelle onEnd({p1,p2,s1,s2}) quand le match se termine.
+ */
+  /**
+ * Lance un match local p1 vs p2 et appelle onEnd({p1,p2,s1,s2}) quand le match se termine.
+ * IMPORTANT: ne crée PAS de nouveau canvas. Le canvas est créé par forceGameRender("game-local").
  */
 export function startLocalMatch(
   p1: string,
   p2: string,
   onEnd: (res: { p1: string; p2: string; s1: number; s2: number }) => void
 ) {
-  // prépare le canvas
-  prepareLocalBoard();
+  // S’assurer qu’un canvas existe déjà (créé par forceGameRender)
+  // const hasCanvas = !!document.querySelector("#app canvas");
+  // if (!hasCanvas) {
+  //   // on est prudent : si le canvas n’existe pas, on le crée via notre routeur interne
+  //   __forceRender("game-local"); // <- cette fonction est déjà exportée dans le fichier
+  // }
+  if (localLoop) { clearInterval(localLoop); localLoop = undefined; }
+  // Afficher les boutons (aucune création DOM ici)
+  getStartBtn().style.display = "block";
+  getPauseBtn().style.display  = "block";
+  getRestartBtn().style.display= "block";
+  getSettingsBtn().style.display= "block";
 
+  // Nettoyer une éventuelle boucle en cours
+  if (localLoop) {
+    clearInterval(localLoop);
+    localLoop = undefined;
+  }
+
+  // Préparer une nouvelle partie sans toucher au canvas/p5
   mode = "local";
+  isPaused = false;
   localGame = new PongGame();
+
   latestState = {
     ...localGame.state,
     ballColor: localGame.ballColor,
     paddleColor: localGame.paddleColor,
   };
 
-  // montre les boutons si besoin
-  getStartBtn().style.display = "block";
-  getPauseBtn().style.display = "block";
-  getRestartBtn().style.display = "block";
-  getSettingsBtn().style.display = "block";
-
-  if (localLoop) clearInterval(localLoop);
-  isPaused = false;
-
-  // démarre directement (ou tu peux attendre le bouton Start si tu veux)
+  // Démarrer immédiatement (ou laissez le bouton Start si vous préférez)
   localGame.resetBall();
   localGame.Started = true;
 
+  // Boucle de jeu
   localLoop = window.setInterval(() => {
     if (!localGame) return;
-    if (!isPaused) localGame.update();
+
+    if (!isPaused) {
+      localGame.update();
+    }
+
     latestState = {
       ...localGame.state,
       ballColor: localGame.ballColor,
       paddleColor: localGame.paddleColor,
     };
 
-    // Détection fin de match
+    // Fin de match -> callback tournoi
     if (localGame.GameOver) {
       const s1 = localGame.state.score.p1 ?? 0;
       const s2 = localGame.state.score.p2 ?? 0;
@@ -475,10 +537,9 @@ export function startLocalMatch(
       clearInterval(localLoop!);
       localLoop = undefined;
 
-      // masque Start
+      // cacher Start pour ne pas relancer par accident
       getStartBtn().style.display = "none";
 
-      // callback tournoi
       onEnd({ p1, p2, s1, s2 });
     }
   }, 1000 / 60);
