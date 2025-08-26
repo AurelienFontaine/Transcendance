@@ -51,34 +51,65 @@ function getSettingsBtn() {
 let p5Instance: p5 | null = null;
 
 export function showBoardForTournament() {
-  // Monte #game-local sans démarrer de partie
   const menu = document.getElementById("menu")!;
   const gameContainer = document.getElementById("gamecontainer")!;
 
-  cleanupGame();              // stoppe boucles/eventuels ws
-  
-  
-  const canvasRoot = document.getElementById("app");
-  if (canvasRoot) {
-    // 🔒 Garantit un seul canvas
-    canvasRoot.querySelectorAll("canvas").forEach(c => c.remove());
-  }
-    menu.style.display = "none";
-    gameContainer.style.display = "block";
+  // Stop toute partie en cours et nettoie les listeners existants
+  cleanupGame();
 
-    if (p5Instance) {
-      p5Instance.remove();
-      p5Instance = null;
-    }
-    p5Instance = new p5(sketch(() => latestState), canvasRoot);
-    resumeSketch();           // commence le draw() p5
+  // 🔒 retire tous les canvases précédents
+  const canvasRoot = document.getElementById("app")!;
+  canvasRoot.querySelectorAll("canvas").forEach(c => c.remove());
 
-  // on n’appelle PAS startLocalGame ici (le tournoi gère la partie)
-  getStartBtn().style.display = "block";
-  getPauseBtn().style.display = "block";
-  getRestartBtn().style.display = "block";
+  // Affiche la zone de jeu
+  menu.style.display = "none";
+  gameContainer.style.display = "block";
+
+  // (Re)crée UNE instance p5
+  if (p5Instance) { p5Instance.remove(); p5Instance = null; }
+  p5Instance = new p5(sketch(() => latestState), canvasRoot);
+  resumeSketch();
+
+  // --- Boutons visibles ---
+  getStartBtn().style.display    = "block";   // sera caché par startLocalMatch
+  getPauseBtn().style.display    = "block";
+  getRestartBtn().style.display  = "block";
   getSettingsBtn().style.display = "block";
   updateCanvasVisibility(true);
+
+  // --- Settings (toggle + apply), listeners frais ---
+  const settingsBtn  = getSettingsBtn();
+  const panel        = document.getElementById("settingsPanel")!;
+  const applyBtn     = document.getElementById("applySettings");
+
+  // retire anciens listeners par "clone"
+  const freshSettings = settingsBtn.cloneNode(true) as HTMLButtonElement;
+  settingsBtn.replaceWith(freshSettings);
+
+  freshSettings.onclick = () => {
+    const show = panel.style.display !== "block";
+    panel.style.display = show ? "block" : "none";
+  };
+
+  if (applyBtn) {
+    const freshApply = applyBtn.cloneNode(true) as HTMLButtonElement;
+    applyBtn.replaceWith(freshApply);
+    freshApply.onclick = () => {
+      const speed       = (document.getElementById("speedSelect") as HTMLSelectElement).value as "slow" | "medium" | "fast";
+      const ballColor   = (document.getElementById("ballColor") as HTMLInputElement).value;
+      const paddleColor = (document.getElementById("paddleColor") as HTMLInputElement).value;
+      if (localGame) {
+        localGame.setSpeed(speed);
+        localGame.setColors(ballColor, paddleColor);
+        latestState = {
+          ...localGame.state,
+          ballColor: localGame.ballColor,
+          paddleColor: localGame.paddleColor,
+        };
+      }
+      panel.style.display = "none";
+    };
+  }
 }
 
 // 🔁 Reaffectation propre
@@ -476,71 +507,87 @@ function getScoresFromState(st: any): { s1: number; s2: number } {
  * Lance un match local p1 vs p2 et appelle onEnd({p1,p2,s1,s2}) quand le match se termine.
  * IMPORTANT: ne crée PAS de nouveau canvas. Le canvas est créé par forceGameRender("game-local").
  */
-export function startLocalMatch(
+
+  export function startLocalMatch(
   p1: string,
   p2: string,
   onEnd: (res: { p1: string; p2: string; s1: number; s2: number }) => void
 ) {
-  // S’assurer qu’un canvas existe déjà (créé par forceGameRender)
-  // const hasCanvas = !!document.querySelector("#app canvas");
-  // if (!hasCanvas) {
-  //   // on est prudent : si le canvas n’existe pas, on le crée via notre routeur interne
-  //   __forceRender("game-local"); // <- cette fonction est déjà exportée dans le fichier
-  // }
+  // On suppose que showBoardForTournament a déjà monté le canvas
   if (localLoop) { clearInterval(localLoop); localLoop = undefined; }
-  // Afficher les boutons (aucune création DOM ici)
-  getStartBtn().style.display = "block";
-  getPauseBtn().style.display  = "block";
-  getRestartBtn().style.display= "block";
-  getSettingsBtn().style.display= "block";
 
-  // Nettoyer une éventuelle boucle en cours
-  if (localLoop) {
-    clearInterval(localLoop);
-    localLoop = undefined;
-  }
-
-  // Préparer une nouvelle partie sans toucher au canvas/p5
   mode = "local";
   isPaused = false;
-  localGame = new PongGame();
 
-  latestState = {
-    ...localGame.state,
-    ballColor: localGame.ballColor,
-    paddleColor: localGame.paddleColor,
-  };
-
-  // Démarrer immédiatement (ou laissez le bouton Start si vous préférez)
-  localGame.resetBall();
-  localGame.Started = true;
-
-  // Boucle de jeu
-  localLoop = window.setInterval(() => {
-    if (!localGame) return;
-
-    if (!isPaused) {
-      localGame.update();
-    }
-
+  const startFreshGame = () => {
+    localGame = new PongGame();
+    localGame.GameOver = false;
+    localGame.Started  = true;
     latestState = {
       ...localGame.state,
       ballColor: localGame.ballColor,
       paddleColor: localGame.paddleColor,
     };
+  };
 
-    // Fin de match -> callback tournoi
-    if (localGame.GameOver) {
-      const s1 = localGame.state.score.p1 ?? 0;
-      const s2 = localGame.state.score.p2 ?? 0;
+  startFreshGame();
 
-      clearInterval(localLoop!);
-      localLoop = undefined;
+  // --- Boutons: listeners "propres" (anti-doublons via clone) ---
+  // Start: caché en tournoi (la partie démarre direct)
+  const startBtn = getStartBtn();
+  startBtn.style.display = "none";
 
-      // cacher Start pour ne pas relancer par accident
-      getStartBtn().style.display = "none";
+  // Pause
+  const oldPause = getPauseBtn();
+  const pauseBtn = oldPause.cloneNode(true) as HTMLButtonElement;
+  oldPause.replaceWith(pauseBtn);
+  pauseBtn.textContent = "Pause";
+  pauseBtn.onclick = () => {
+    if (!localGame || localGame.GameOver) return;
+    isPaused = !isPaused;
+    localGame.Started = !isPaused;
+    pauseBtn.textContent = isPaused ? "Play" : "Pause";
+  };
 
-      onEnd({ p1, p2, s1, s2 });
-    }
-  }, 1000 / 60);
+  // Restart: redémarre le match courant (mêmes joueurs)
+  const oldRestart = getRestartBtn();
+  const restartBtn = oldRestart.cloneNode(true) as HTMLButtonElement;
+  oldRestart.replaceWith(restartBtn);
+  restartBtn.onclick = () => {
+    // stop loop courante
+    if (localLoop) { clearInterval(localLoop); localLoop = undefined; }
+    // relance une partie neuve
+    isPaused = false;
+    startFreshGame();
+    // relance la boucle (voir plus bas)
+    loopStart();
+  };
+
+  // --- Boucle de jeu ---
+  const loopStart = () => {
+    localLoop = window.setInterval(() => {
+      if (!localGame) return;
+
+      if (!isPaused) localGame.update();
+
+      latestState = {
+        ...localGame.state,
+        ballColor: localGame.ballColor,
+        paddleColor: localGame.paddleColor,
+      };
+
+      if (localGame.GameOver) {
+        const s1 = localGame.state.score.p1 ?? 0;
+        const s2 = localGame.state.score.p2 ?? 0;
+
+        clearInterval(localLoop!);
+        localLoop = undefined;
+
+        onEnd({ p1, p2, s1, s2 });
+      }
+    }, 1000 / 60);
+  };
+
+  loopStart();
 }
+
