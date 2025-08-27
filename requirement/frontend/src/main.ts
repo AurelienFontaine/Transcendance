@@ -10,6 +10,9 @@ import { setupChoosePasswordHandler } from '../handlers/user-handler';
 
 //import { handleGame } from '../handlers/game';
 
+const backendUrl = "http://localhost:3000";
+
+
 // Record<K, V> utility typescript type with K as key type and V as value type
 // () => string : function without parameters returning a string
 // "routes" is an object with a path as key and each value is a function that returns a string (here HTML code)
@@ -100,11 +103,29 @@ async function createUser(event: Event) {
   if (data.token) { //gestion du log cote client
     localStorage.setItem('token', data.token);
     localStorage.setItem('username', name);
-    updateUIForLoggedInUser(name); //MAJ de l'interface client
+	navigate("/profile");
   }
   else {
     alert(JSON.stringify(data));
   }
+}
+
+async function changeUsername(event: Event) {
+	event.preventDefault();
+	const usernameInput = document.getElementById("changeUsername") as HTMLInputElement;
+	const username = usernameInput.value;
+	const response = await fetch (`${backendUrl}/changeUsername`, {
+		method: "POST",
+		headers: {
+			"Content-Type": "application/json",
+		},
+		body: JSON.stringify({username}),
+	});
+	const data = await response.json();
+	if (response.ok)
+		alert("Username change avec success!");
+	else
+		alert(`Erreur: ${data.error}`);
 }
 
 //connexion user
@@ -114,7 +135,7 @@ async function loginUser(event: Event) {
   const passwordInput = document.getElementById("loginPassword") as HTMLInputElement;
   const name = nameInput.value;
   const password = passwordInput.value;
-  const backendUrl = "http://localhost:3000";
+//   const backendUrl = "http://localhost:3000";
   const response = await fetch (`${backendUrl}/login`, {
     method: "POST",
     headers: {
@@ -126,7 +147,8 @@ async function loginUser(event: Event) {
   if (data.token) { //gestion du log cote client si login reussi
     localStorage.setItem('token', data.token); //stock JWT
     localStorage.setItem('username', name); //stock nom
-    updateUIForLoggedInUser(name); //MAJ de l'interface client
+    // updateUIForLoggedInUser(name); //MAJ de l'interface client
+	navigate("/profile"); // force le refresh pour mettre a jour l'UI
   } else {
     alert("Erreur : " + (data.error || "Connexion echouee"));
   }
@@ -134,7 +156,7 @@ async function loginUser(event: Event) {
 }
 
 //Fonction qui modifie l'apparence de la page en fonction de la connection ou non
-function updateUIForLoggedInUser(username: string) {
+function updateUIForLoggedInUser(name: string) {
   const loginForm = document.getElementById('loginForm');
   const registerForm = document.getElementById('registerForm');
 
@@ -144,13 +166,32 @@ function updateUIForLoggedInUser(username: string) {
   const logoutBtn = document.getElementById('logoutButton');
   if (logoutBtn) logoutBtn.style.display = 'block';
   
-  const showWelcome = document.getElementById('showWelcome');
-  if (showWelcome) {
-    showWelcome.style.display = 'block';
-    showWelcome.textContent = `Bienvenue, ${username} !`;
+  const loggedIn = document.getElementById('loggedIn');
+  if (loggedIn) {
+    loggedIn.style.display = 'block';
+    loggedIn.textContent = `Bienvenue, ${name} !`;
+	const usernameInput = document.getElementById('changeUsername') as HTMLInputElement;
+	usernameInput.style.display = 'block';
   }
   const googleBtn = document.getElementById('googleLoginButton');
   if (googleBtn) googleBtn.style.display = 'none';
+
+
+	const username = localStorage.getItem('username');
+	const userInfo = document.getElementById('userInfo');
+	const currentUsername = document.getElementById('currentUsername');
+	const changeForm = document.getElementById('changeUsernameForm');
+
+	if (username && userInfo && currentUsername && changeForm) {
+		userInfo.style.display = 'block';
+		changeForm.style.display = 'block';
+		currentUsername.textContent = username;
+		// Ajout du handler de changement
+		changeForm.addEventListener('submit', (e) => {
+		e.preventDefault();
+		changeUsername(e); // ta fonction déjà écrite
+		});
+	}
 }
 
 //affichage pour user deconnecte, maj UI
@@ -165,9 +206,20 @@ async function checkIfLoggedIn() {
 
 //MAJ si user connecte
 function updateUIForLoggedOutUser() {
-  const showWelcome = document.getElementById('showWelcome');
+  const loggedIn = document.getElementById('loggedIn');
+
+
+	const userInfo = document.getElementById('userInfo');
+	// const currentUsername = document.getElementById('currentUsername');
+	const changeForm = document.getElementById('changeUsernameForm');
+
+	if (userInfo && changeForm) {
+		userInfo.style.display = 'none';
+		changeForm.style.display = 'none';
+	}
+
   const logoutBtn = document.getElementById('logoutButton');
-  if (showWelcome) showWelcome.style.display = 'none';
+  if (loggedIn) loggedIn.style.display = 'none';
   if (logoutBtn) logoutBtn.style.display = 'none';
 
   const loginForm = document.getElementById('loginForm');
@@ -186,7 +238,7 @@ function logoutUser() {
 
 // Verification du token
 async function tokenCheck() {
-  const backendUrl = "http://localhost:3000";
+//   const backendUrl = "http://localhost:3000";
   const token = localStorage.getItem('token');
   if (token) {
     try {
@@ -243,11 +295,11 @@ function render() {
 	}
 
 	if (token && name) {
-	localStorage.setItem('token', token);
-	localStorage.setItem('username', name);
-	updateUIForLoggedInUser(name);
-	// Nettoyer l'URL pour ne pas laisser les paramètres visibles
-	window.history.replaceState({}, '', window.location.pathname);
+		localStorage.setItem('token', token);
+		localStorage.setItem('username', name);
+		// Nettoyer l'URL pour ne pas laisser les paramètres visibles
+		window.history.replaceState({}, '', window.location.pathname);
+		updateUIForLoggedInUser(name);
 	}
 
 	//affiche la page correspondant a l'url ou 404
@@ -256,26 +308,7 @@ function render() {
 
   // On attend que le DOM ait fini de peindre le contenu HTML injecté
   requestAnimationFrame(() => { //attends le prochain refresh d'ecran
-    // if (path === '/play') {
-    //   const localBtn = document.getElementById('localBtn');
-    //   const localOptions = document.getElementById('localOptions');
-    //   const onlineBtn = document.getElementById('onlineBtn');
-    //   const onlineOptions = document.getElementById('onlineOptions');
-
-    // localBtn?.addEventListener('click', () => {
-    //   history.pushState({ page: "game-local" }, "", "#game-local");
-
-    //   // ⚠️ Attendre que le DOM soit peint avant d’appeler Game.__forceRender
-    //   requestAnimationFrame(() => {
-    //     Game.__forceRender("game-local");
-    //   });
-    // });
-    //   onlineBtn?.addEventListener('click', () => {
-    //     toggleOptions(onlineOptions, localOptions);
-    //   });
-    // }
-
-    if (path === '/play') {
+	if (path === '/play') {
   // 1) Wire the tournament UI (register players, start tournament, scoring)
   //    This function should be idempotent (won’t double-attach on re-render).
       setupPlayPage();
@@ -301,16 +334,25 @@ function render() {
     }
 
     if (path === '/profile') {
-      const registerForm = document.getElementById('registerForm');
-      if (registerForm)
-        registerForm.addEventListener('submit', createUser);
-      const loginForm = document.getElementById('loginForm');
-      if (loginForm) {
-        loginForm.addEventListener('submit', loginUser);
-      }
+		// 
 
-      const logoutBtn = document.getElementById('logoutButton');
-      if (logoutBtn) logoutBtn.addEventListener('click', logoutUser);
+		const hasToken = ! !localStorage.getItem('token');
+		const googleBtn = document.getElementById('googleLoginButton');
+		if (googleBtn)
+			googleBtn.style.display = hasToken ? 'none' : 'block';
+
+    	const registerForm = document.getElementById('registerForm');
+    	if (registerForm)
+        	registerForm.addEventListener('submit', createUser);
+
+    	const loginForm = document.getElementById('loginForm');
+      	if (loginForm) {
+        	loginForm.addEventListener('submit', loginUser);
+      	}
+
+      	const logoutBtn = document.getElementById('logoutButton');
+      	if (logoutBtn) 
+			logoutBtn.addEventListener('click', logoutUser);
     }
     checkIfLoggedIn(); //verifie la session a chaque affichage
   });

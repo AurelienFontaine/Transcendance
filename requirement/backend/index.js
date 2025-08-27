@@ -90,8 +90,8 @@ async function start(){
         // Creation user
         try {
             const password_hash = await hashPassword(password);
-            const stmt = db.prepare ('INSERT INTO users (name, email, password_hash) VALUES (?, ?, ?)');
-            const info = stmt.run(name, email, password_hash);
+            const stmt = db.prepare ('INSERT INTO users (name, email, password_hash, username) VALUES (?, ?, ?, ?)');
+            const info = stmt.run(name, email, password_hash, name);
 
             const token = fastify.jwt.sign({
                 id: info.lastInsertRowid,
