@@ -98,6 +98,14 @@ export function setupPlayPage() {
   const players: string[] = [];
   let currentMatch: { p1: string; p2: string } | null = null;
 
+  const token = localStorage.getItem('token');
+  const rawName = localStorage.getItem('username');
+  const loggedName = token && rawName ? rawName.trim() : null; // <— ignore si pas de token
+
+  if (loggedName && !players.includes(loggedName)) {
+    players.push(loggedName);
+  }
+
   // ========== Navigation (Local / Online / Sous-menu) ==========
   $("localBtn").onclick = () => {
     hide(modeChoice);
@@ -141,10 +149,21 @@ export function setupPlayPage() {
   const matchInfo    = $("matchInfo");
   const standingsEl  = $("standings");
 
-  const refreshPlayers = () => {
-    playerList.innerHTML = players.length
-      ? `<strong>Joueurs inscrits:</strong> ${players.join(", ")}`
-      : `<em>Aucun joueur inscrit</em>`;
+ const refreshPlayers = () => {
+    const ln = loggedName; // capture
+    const others = ln ? players.filter(p => p !== ln) : [...players];
+
+    let html = '';
+    if (ln) {
+      html += `<div>Inscrit (connecté) : <strong>${ln}</strong></div>`;
+    }
+    if (others.length) {
+      html += `<div class="mt-1 text-sm text-gray-300"><strong>Autres joueurs :</strong> ${others.join(', ')}</div>`;
+    }
+    if (!html) {
+      html = `<em>Aucun joueur inscrit</em>`;
+    }
+    playerList.innerHTML = html;
   };
 
   const renderStandings = () => {
@@ -188,6 +207,18 @@ export function setupPlayPage() {
         // Démarre le match et enregistre le score automatiquement à la fin
         startLocalMatch(m.p1, m.p2, ({ s1, s2 }) => {
           tournament!.reportResult(m.p1, m.p2, s1, s2);
+          const token = localStorage.getItem('token');
+          //Verif du token
+          if (token) {
+            fetch('http://localhost:3000/game/result', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`,
+              },
+              body: JSON.stringify({ p1Name: m.p1, p2Name: m.p2, s1, s2 })
+            }).catch(e => console.warn('Enregistrement du match échoué:', e));
+          }
           renderStandings();
           showNextMatch();
         });
@@ -198,7 +229,19 @@ export function setupPlayPage() {
   $("addPlayerBtn").onclick = () => {
     const alias = aliasInput.value.trim();
     if (!alias) return;
-    if (players.includes(alias)) return alert("Alias déjà utilisé.");
+
+    // Bloque l'ajout si c'est l'alias du user connecté déjà auto-inscrit
+    if (loggedName && alias === loggedName) {
+      alert("Cet alias correspond déjà à l'utilisateur connecté.");
+      return;
+    }
+
+    // Bloque les doublons (autres joueurs)
+    if (players.includes(alias)) {
+      alert("Alias déjà utilisé.");
+      return;
+    }
+
     players.push(alias);
     aliasInput.value = "";
     refreshPlayers();
@@ -217,12 +260,18 @@ export function setupPlayPage() {
   };
 
   $("resetTournamentBtn").onclick = () => {
+    // Vide tout
     players.splice(0, players.length);
     tournament = null;
     currentMatch = null;
-    refreshPlayers();
+
     matchInfo.innerHTML = "";
     standingsEl.innerHTML = "";
+
+    // Réinscrit automatiquement l'utilisateur connecté s'il existe
+    if (loggedName) players.push(loggedName);
+
+    refreshPlayers();
   };
 
   // init

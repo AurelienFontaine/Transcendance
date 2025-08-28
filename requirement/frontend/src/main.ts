@@ -3,7 +3,7 @@ import "./styles.css";
 
 //import vues/pages du site (SPA)
 import { renderHome } from '../pages/home';
-import { renderProfile } from '../pages/profile';
+import { renderProfile, setupProfilePage } from '../pages/profile';
 import { renderPlay, setupPlayPage } from '../pages/play';
 import { renderChoosePassword } from '../pages/choose-password';
 import { setupChoosePasswordHandler } from '../handlers/user-handler';
@@ -62,12 +62,6 @@ function toggleOptions(showElem: HTMLElement | null, hideElem: HTMLElement | nul
   hideElement(hideElem)  
 }
 
-
-// GAME PONG ///////////////////////////////////////////////
-
-// import * as Game from '../handlers/game/game-front';
-
-
 // Authentication //////////////////////////////////
 
 //enregistre un user via formulaire
@@ -101,6 +95,8 @@ async function createUser(event: Event) {
     localStorage.setItem('token', data.token);
     localStorage.setItem('username', name);
     updateUIForLoggedInUser(name); //MAJ de l'interface client
+    navigate('/profile');
+    return;
   }
   else {
     alert(JSON.stringify(data));
@@ -127,6 +123,8 @@ async function loginUser(event: Event) {
     localStorage.setItem('token', data.token); //stock JWT
     localStorage.setItem('username', name); //stock nom
     updateUIForLoggedInUser(name); //MAJ de l'interface client
+    navigate('/profile');
+    return;
   } else {
     alert("Erreur : " + (data.error || "Connexion echouee"));
   }
@@ -181,8 +179,12 @@ function updateUIForLoggedOutUser() {
 //deconnection, supp token, reinitialise l'affichage
 function logoutUser() {
   localStorage.removeItem('token');
+  localStorage.removeItem('username'); // <-- important
   updateUIForLoggedOutUser();
+  // Optionnel: re-render pour refléter tout de suite l'état
+  render();
 }
+
 
 // Verification du token
 async function tokenCheck() {
@@ -200,6 +202,7 @@ async function tokenCheck() {
     } catch (err) {
       console.warn('Token expire ou invalide.');
       localStorage.removeItem('token');
+      localStorage.removeItem('username');
       updateUIForLoggedOutUser();
     }
   }
@@ -243,12 +246,22 @@ function render() {
 	}
 
 	if (token && name) {
-	localStorage.setItem('token', token);
-	localStorage.setItem('username', name);
-	updateUIForLoggedInUser(name);
-	// Nettoyer l'URL pour ne pas laisser les paramètres visibles
-	window.history.replaceState({}, '', window.location.pathname);
-	}
+    localStorage.setItem('token', token);
+    localStorage.setItem('username', name);
+    updateUIForLoggedInUser(name);
+    window.history.replaceState({}, '', window.location.pathname);
+
+    // ➜ si on est déjà sur /profile, on relance juste le setup
+    if (path === '/profile') {
+      requestAnimationFrame(() => {
+        setupProfilePage();
+      });
+    } else {
+      navigate('/profile');   // va sur le profil pour charger l’historique
+    }
+    return; // important pour ne pas continuer le render courant
+  }
+
 
 	//affiche la page correspondant a l'url ou 404
   const page = routes[path] || (() => '<h1>404 Not Found</h1>');
@@ -256,48 +269,11 @@ function render() {
 
   // On attend que le DOM ait fini de peindre le contenu HTML injecté
   requestAnimationFrame(() => { //attends le prochain refresh d'ecran
-    // if (path === '/play') {
-    //   const localBtn = document.getElementById('localBtn');
-    //   const localOptions = document.getElementById('localOptions');
-    //   const onlineBtn = document.getElementById('onlineBtn');
-    //   const onlineOptions = document.getElementById('onlineOptions');
-
-    // localBtn?.addEventListener('click', () => {
-    //   history.pushState({ page: "game-local" }, "", "#game-local");
-
-    //   // ⚠️ Attendre que le DOM soit peint avant d’appeler Game.__forceRender
-    //   requestAnimationFrame(() => {
-    //     Game.__forceRender("game-local");
-    //   });
-    // });
-    //   onlineBtn?.addEventListener('click', () => {
-    //     toggleOptions(onlineOptions, localOptions);
-    //   });
-    // }
 
     if (path === '/play') {
   // 1) Wire the tournament UI (register players, start tournament, scoring)
   //    This function should be idempotent (won’t double-attach on re-render).
       setupPlayPage();
-
-      // // 2) Wire your game mode buttons (local / online) like before
-      // const localBtn  = document.getElementById('localBtn');
-      // const onlineBtn = document.getElementById('onlineBtn');
-
-      // localBtn?.addEventListener('click', () => {
-      //   history.pushState({ page: 'game-local' }, '', '#game-local');
-      //   // wait one paint so the DOM is present, then render the game
-      //   requestAnimationFrame(() => {
-      //     Game.__forceRender('game-local');
-      //   });
-      // });
-
-      // onlineBtn?.addEventListener('click', () => {
-      //   history.pushState({ page: 'game-online' }, '', '#game-online');
-      //   requestAnimationFrame(() => {
-      //     Game.__forceRender('game-online');
-      //   });
-      // });
     }
 
     if (path === '/profile') {
@@ -308,9 +284,9 @@ function render() {
       if (loginForm) {
         loginForm.addEventListener('submit', loginUser);
       }
-
       const logoutBtn = document.getElementById('logoutButton');
       if (logoutBtn) logoutBtn.addEventListener('click', logoutUser);
+      setupProfilePage();
     }
     checkIfLoggedIn(); //verifie la session a chaque affichage
   });

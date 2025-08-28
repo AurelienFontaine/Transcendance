@@ -104,8 +104,6 @@ async function start(){
         }
     });
 
-
-
     // User login
 
     const checkPassword = async (password, hashPassword) => {
@@ -162,8 +160,38 @@ async function start(){
     });
 
 
+    // --- Helpers Users / Guests --- //
+function slugifyName(name) {
+    return String(name).trim().toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
+    }
 
+    /**
+     * Retourne l'id du user existant par name, ou crée un "guest" si absent.
+     * Les invités reçoivent un email technique unique et un hash "GUEST".
+     */
+    function getOrCreateUserIdByName(name) {
+    const u = db.prepare('SELECT id FROM users WHERE name = ?').get(name);
+    if (u) return u.id;
 
+    // crée un invité
+    const slug = slugifyName(name) || `guest_${Date.now()}`;
+    const email = `${slug}@guest.local`; // respecte contrainte UNIQUE
+    const password_hash = 'GUEST';       // valeur placeholder
+
+    try {
+        const info = db.prepare(
+        'INSERT INTO users (name, email, password_hash) VALUES (?, ?, ?)'
+        ).run(name, email, password_hash);
+        return info.lastInsertRowid;
+    } catch (e) {
+        // email pour guest
+        const email2 = `${slug}_${Date.now()}@guest.local`;
+        const info = db.prepare(
+        'INSERT INTO users (name, email, password_hash) VALUES (?, ?, ?)'
+        ).run(name, email2, password_hash);
+        return info.lastInsertRowid;
+    }
+    }
 
     // Authentification 
     
@@ -175,6 +203,120 @@ async function start(){
         }
     });
     
+
+    // Enregistrer un match terminé
+    fastify.post('/game/result', {
+    preHandler: [fastify.authenticate],
+    schema: {
+        body: {
+        type: 'object',
+        required: ['p1Name', 'p2Name', 's1', 's2'],
+        properties: {
+            p1Name: { type: 'string', minLength: 1 },
+            p2Name: { type: 'string', minLength: 1 },
+            s1: { type: 'integer', minimum: 0 },
+            s2: { type: 'integer', minimum: 0 },
+        }
+        },
+        response: {
+        200: {
+            type: 'object',
+            properties: {
+            success: { type: 'boolean' },
+            gameId: { type: 'number' },
+            }
+        }
+        }
+    }
+    }, async (request, reply) => {
+    const { p1Name, p2Name, s1, s2 } = request.body;
+
+    const fp_id = getOrCreateUserIdByName(p1Name);
+    const sp_id = getOrCreateUserIdByName(p2Name);
+
+    const game_status = 1; //terminé
+    const info = db.prepare(`
+        INSERT INTO games (fp_id, sp_id, fp_score, sp_score, game_status)
+        VALUES (?, ?, ?, ?, ?)
+    `).run(fp_id, sp_id, s1, s2, game_status);
+
+    return { success: true, gameId: info.lastInsertRowid };
+    });
+
+
+    // Stats simples pour un user par nom
+fastify.get('/users/:name/stats', async (request, reply) => {
+  const { name } = request.params;
+
+  const user = db.prepare('SELECT id FROM users WHERE name = ?').get(name);
+  if (!user) return reply.status(404).send({ error: 'Utilisateur introuvable' });
+
+  const uid = user.id;
+
+  // victoires
+  const wins = db.prepare(`
+    SELECT COUNT(*) AS c FROM games
+    WHERE (fp_id = ? AND fp_score > sp_score) OR (sp_id = ? AND sp_score > fp_score)
+  `).get(uid, uid).c;
+
+  // défaites
+  const losses = db.prepare(`
+    SELECT COUNT(*) AS c FROM games
+    WHERE (fp_id = ? AND fp_score < sp_score) OR (sp_id = ? AND sp_score < fp_score)
+  `).get(uid, uid).c;
+
+  const total = db.prepare(`
+    SELECT COUNT(*) AS c FROM games
+    WHERE fp_id = ? OR sp_id = ?
+  `).get(uid, uid).c;
+
+  const winrate = total ? Math.round((wins / total) * 100) : 0;
+
+  return { name, wins, losses, total, winrate };
+});
+
+// Historique de match d’un user par nom
+    fastify.get('/users/:name/history', async (request, reply) => {
+    const { name } = request.params;
+
+    const user = db.prepare('SELECT id FROM users WHERE name = ?').get(name);
+    if (!user) return reply.status(404).send({ error: 'Utilisateur introuvable' });
+
+    const uid = user.id;
+
+    const rows = db.prepare(`
+        SELECT
+        g.id,
+        g.date,
+        g.fp_id, g.sp_id,
+        g.fp_score, g.sp_score,
+        u1.name AS p1Name,
+        u2.name AS p2Name
+        FROM games g
+        JOIN users u1 ON u1.id = g.fp_id
+        JOIN users u2 ON u2.id = g.sp_id
+        WHERE g.fp_id = ? OR g.sp_id = ?
+        ORDER BY g.date DESC, g.id DESC
+        LIMIT 100
+    `).all(uid, uid);
+
+    const history = rows.map(r => {
+        const iAmP1 = r.fp_id === uid;
+        return {
+        id: r.id,
+        date: r.date,
+        me: iAmP1 ? r.p1Name : r.p2Name,
+        opponent: iAmP1 ? r.p2Name : r.p1Name,
+        myScore: iAmP1 ? r.fp_score : r.sp_score,
+        oppScore: iAmP1 ? r.sp_score : r.fp_score,
+        result: (iAmP1 ? r.fp_score : r.sp_score) > (iAmP1 ? r.sp_score : r.fp_score) ? 'W' :
+                (iAmP1 ? r.fp_score : r.sp_score) < (iAmP1 ? r.sp_score : r.fp_score) ? 'L' : 'D'
+            };
+        });
+
+    return { name, matches: history };
+    });
+
 
     // Verifier le token JWT user et return un 401 si token invalide
     fastify.get('/me', {
