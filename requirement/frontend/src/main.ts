@@ -102,7 +102,7 @@ async function createUser(event: Event) {
 
   if (data.token) { //gestion du log cote client
     localStorage.setItem('token', data.token);
-    localStorage.setItem('username', name);
+    localStorage.setItem('username', data.username);
 	navigate("/profile");
   }
   else {
@@ -111,22 +111,48 @@ async function createUser(event: Event) {
 }
 
 async function changeUsername(event: Event) {
-	event.preventDefault();
-	const usernameInput = document.getElementById("changeUsername") as HTMLInputElement;
-	const username = usernameInput.value;
-	const response = await fetch (`${backendUrl}/changeUsername`, {
-		method: "POST",
-		headers: {
-			"Content-Type": "application/json",
-		},
-		body: JSON.stringify({username}),
-	});
-	const data = await response.json();
-	if (response.ok)
-		alert("Username change avec success!");
-	else
-		alert(`Erreur: ${data.error}`);
+  // get info + basic test
+  event.preventDefault();
+  // alert('On essaie de changer le pseudo');
+  const input = document.getElementById('newUsername') as HTMLInputElement;
+  if (!input)
+    return (alert('Error: no input found'));
+  const newUsername = input.value.trim();
+  if (!newUsername)
+      return (alert('Error: please enter a valid username (3 - 30 char)'));
+  const token = localStorage.getItem('token');
+  if (!token)
+    return (alert('Error: you should be connected to do that'));
+
+  try { // call back functions
+    const res = await fetch(`${backendUrl}/me/username`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({ username: newUsername })
+    });
+    const data = await res.json();
+    if (!res.ok)
+      return (alert('Error: ' + (data.error || res.statusText)));
+    //update local storage + UI
+    localStorage.setItem('username', data.username);
+    if (data.token)
+      localStorage.setItem('token', data.token);
+    
+    const currentUsername = document.getElementById('currentUsername');
+    if (currentUsername)
+      currentUsername.textContent = data.username;
+    
+    input.value = '';
+    alert('Username successfully updated');
+  } catch (err) {
+    console.error(err);
+    alert ('Error: could not change username');
+  }
 }
+
 
 //connexion user
 async function loginUser(event: Event) {
@@ -135,7 +161,7 @@ async function loginUser(event: Event) {
   const passwordInput = document.getElementById("loginPassword") as HTMLInputElement;
   const name = nameInput.value;
   const password = passwordInput.value;
-//   const backendUrl = "http://localhost:3000";
+
   const response = await fetch (`${backendUrl}/login`, {
     method: "POST",
     headers: {
@@ -143,12 +169,13 @@ async function loginUser(event: Event) {
     },
     body: JSON.stringify({name, password}),
   });
+
+  // Recuperation & stockage en local (client) des donnees USER + refresh la page
   const data = await response.json();
-  if (data.token) { //gestion du log cote client si login reussi
+  if (data.token && data.username) { //gestion du log cote client si login reussi
     localStorage.setItem('token', data.token); //stock JWT
-    localStorage.setItem('username', name); //stock nom
-    // updateUIForLoggedInUser(name); //MAJ de l'interface client
-	navigate("/profile"); // force le refresh pour mettre a jour l'UI
+    localStorage.setItem('username', data.username); 
+	  navigate("/profile"); // force le refresh pour mettre a jour l'UI
   } else {
     alert("Erreur : " + (data.error || "Connexion echouee"));
   }
@@ -160,22 +187,18 @@ function updateUIForLoggedInUser(name: string) {
   const loginForm = document.getElementById('loginForm');
   const registerForm = document.getElementById('registerForm');
 
-  if (loginForm) loginForm.style.display = 'none';
-  if (registerForm) registerForm.style.display = 'none';
+  if (loginForm)
+    loginForm.style.display = 'none';
+  if (registerForm)
+    registerForm.style.display = 'none';
 
   const logoutBtn = document.getElementById('logoutButton');
-  if (logoutBtn) logoutBtn.style.display = 'block';
-  
-  const loggedIn = document.getElementById('loggedIn');
-  if (loggedIn) {
-    loggedIn.style.display = 'block';
-    loggedIn.textContent = `Bienvenue, ${name} !`;
-	const usernameInput = document.getElementById('changeUsername') as HTMLInputElement;
-	usernameInput.style.display = 'block';
-  }
-  const googleBtn = document.getElementById('googleLoginButton');
-  if (googleBtn) googleBtn.style.display = 'none';
+  if (logoutBtn)
+    logoutBtn.style.display = 'block';
 
+  const googleBtn = document.getElementById('googleLoginButton');
+  if (googleBtn)
+    googleBtn.style.display = 'none';
 
 	const username = localStorage.getItem('username');
 	const userInfo = document.getElementById('userInfo');
@@ -186,10 +209,10 @@ function updateUIForLoggedInUser(name: string) {
 		userInfo.style.display = 'block';
 		changeForm.style.display = 'block';
 		currentUsername.textContent = username;
-		// Ajout du handler de changement
+		// Handle le changement de username
 		changeForm.addEventListener('submit', (e) => {
-		e.preventDefault();
-		changeUsername(e); // ta fonction déjà écrite
+		  e.preventDefault();
+		  changeUsername(e);
 		});
 	}
 }
@@ -198,36 +221,36 @@ function updateUIForLoggedInUser(name: string) {
 async function checkIfLoggedIn() {
   await tokenCheck(); //verif la validite du token en back
   const token = localStorage.getItem('token');
-  const name = localStorage.getItem('username'); // à stocker lors du login si tu veux
-  if (token && name) {
+  const name = localStorage.getItem('username');
+  if (token && name)
     updateUIForLoggedInUser(name);
-  }
 }
 
 //MAJ si user connecte
 function updateUIForLoggedOutUser() {
-  const loggedIn = document.getElementById('loggedIn');
-
-
 	const userInfo = document.getElementById('userInfo');
-	// const currentUsername = document.getElementById('currentUsername');
-	const changeForm = document.getElementById('changeUsernameForm');
-
-	if (userInfo && changeForm) {
+	if (userInfo)
 		userInfo.style.display = 'none';
+
+  const changeForm = document.getElementById('changeUsernameForm');
+  if (changeForm)
 		changeForm.style.display = 'none';
-	}
 
   const logoutBtn = document.getElementById('logoutButton');
-  if (loggedIn) loggedIn.style.display = 'none';
-  if (logoutBtn) logoutBtn.style.display = 'none';
+  if (logoutBtn)
+    logoutBtn.style.display = 'none';
 
   const loginForm = document.getElementById('loginForm');
+  if (loginForm)
+    loginForm.style.display = 'block';
+
   const registerForm = document.getElementById('registerForm');
-  if (loginForm) loginForm.style.display = 'block';
-  if (registerForm) registerForm.style.display = 'block';
+  if (registerForm)
+    registerForm.style.display = 'block';
+
   const googleBtn = document.getElementById('googleLoginButton');
-  if (googleBtn) googleBtn.style.display = 'block';
+  if (googleBtn)
+    googleBtn.style.display = 'block';
 }
 
 //deconnection, supp token, reinitialise l'affichage
@@ -334,25 +357,27 @@ function render() {
     }
 
     if (path === '/profile') {
-		// 
+		  const hasToken = ! !localStorage.getItem('token');
 
-		const hasToken = ! !localStorage.getItem('token');
-		const googleBtn = document.getElementById('googleLoginButton');
-		if (googleBtn)
-			googleBtn.style.display = hasToken ? 'none' : 'block';
+		  const googleBtn = document.getElementById('googleLoginButton');
+		  if (googleBtn)
+			  googleBtn.style.display = hasToken ? 'none' : 'block';
 
-    	const registerForm = document.getElementById('registerForm');
+      const registerForm = document.getElementById('registerForm');
     	if (registerForm)
-        	registerForm.addEventListener('submit', createUser);
+        registerForm.addEventListener('submit', createUser);
 
     	const loginForm = document.getElementById('loginForm');
-      	if (loginForm) {
-        	loginForm.addEventListener('submit', loginUser);
-      	}
+      if (loginForm)
+        loginForm.addEventListener('submit', loginUser);
 
-      	const logoutBtn = document.getElementById('logoutButton');
-      	if (logoutBtn) 
-			logoutBtn.addEventListener('click', logoutUser);
+      const changeUsernameForm = document.getElementById('newUsername');
+      if (changeUsernameForm)
+        changeUsernameForm.addEventListener('submit', changeUsername);
+
+      const logoutBtn = document.getElementById('logoutButton');
+      if (logoutBtn) 
+			  logoutBtn.addEventListener('click', logoutUser);
     }
     checkIfLoggedIn(); //verifie la session a chaque affichage
   });

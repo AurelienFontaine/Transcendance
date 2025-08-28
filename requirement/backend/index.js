@@ -63,6 +63,7 @@ async function start(){
                         success: { type: 'boolean' },
                         id: { type: 'number' },
                         token: { type: 'string' }, //se co apres le register
+                        username: { type: 'string' }
                     },
                 },
                 400: { //erreur auto fastify (champ manquant ou invalide)
@@ -90,15 +91,24 @@ async function start(){
         // Creation user
         try {
             const password_hash = await hashPassword(password);
+            // check de l'username deja existant
+            let username = name;
+            let username_tmp = username;
+            let i = 1;
+            while (db.prepare('SELECT id FROM users WHERE username = ?').get(username_tmp)) {
+                username_tmp = `${username}${i}`;
+                i++;
+            }
+            username = username_tmp;
             const stmt = db.prepare ('INSERT INTO users (name, email, password_hash, username) VALUES (?, ?, ?, ?)');
-            const info = stmt.run(name, email, password_hash, name);
+            const info = stmt.run(name, email, password_hash, username);
 
             const token = fastify.jwt.sign({
                 id: info.lastInsertRowid,
                 name: name,
             });
 
-            return { success: true, id: info.lastInsertRowid, token};
+            return { success: true, id: info.lastInsertRowid, token, username};
         } catch (err) {
             return reply.status(400).send({ error: err.message });
         }
@@ -128,7 +138,8 @@ async function start(){
                     properties: {
                         success: { type: 'boolean' },
                         message: { type: 'string' },
-                        token: { type: 'string' }
+                        token: { type: 'string' },
+                        username: { type: 'string'}
                     }
                 },
                 400: { //erreur auto (mdp trop court... c'est fastify qui gere)
@@ -158,7 +169,7 @@ async function start(){
         }
 
         const token = fastify.jwt.sign({ id: user.id, name: user.name });
-        return { success: true, message: 'Connexion reussie', token }; //200
+        return { success: true, message: 'Connexion reussie', token , username: user.username}; //200
     });
 
 
@@ -181,15 +192,65 @@ async function start(){
         preHandler: [fastify.authenticate]
     }, async (request, reply) => {
         const userId = request.user.id;
-
         const user = db.prepare('SELECT id, name FROM users WHERE id = ?').get(userId);
-
         if (!user) {
             return reply.status(401).send({error: 'Utilisateur supprime ou inexistant.'});
         }
         return { user: request.user };
     });
 
+
+    fastify.put('/me/username', { //gerer le changement d'username
+        preHandler: [fastify.authenticate],
+        schema: {
+            body: {
+                type: 'object',
+                required: ['username'],
+                properties: {
+                    username: { type: 'string', minLength: 3, maxLength: 30 }
+                }
+            },
+            response: {
+                200: { //OK
+                    type: 'object',
+                    properties: {
+                        success: { type: 'boolean' },
+                        username: { type: 'string' },
+                        token: {type: 'string' }
+                    }
+                },
+                400: { //Erreur auto
+                    type: 'object',
+                    properties: { error: { type: 'string' } }
+                },
+                401: { //Erreur manuelle ou BDD
+                    type: 'object',
+                    properties: { error: { type: 'string' } }
+                },
+                409: { //Erreur conflit logique souvent doublon ou autre
+                    type: 'object',
+                    properties: { error: { type: 'string' } }
+                }
+            }
+        } 
+    }, async (request, reply) => {
+            const userId = request.user.id;
+            const { username } = request.body;
+
+            const existing = db.prepare('SELECT id FROM users WHERE username = ? AND id != ?').get(username, userId); //cherche si un autre joueur utilise le pseudo avant de changer
+            if (existing)
+                return (reply.status(409).send({error: 'Username already used'}));
+
+            try {
+                const stmt = db.prepare('UPDATE users SET username = ? WHERE id = ?')
+                stmt.run(username, userId);
+
+                const newToken = fastify.jwt.sign({id: userId, username: username });
+                return { success: true, username, token: newToken };
+            } catch (err) {
+                return (reply.status(400).send({ error: err.message }));
+            }
+    });
     //Demarrer le serveur
     
     try {
