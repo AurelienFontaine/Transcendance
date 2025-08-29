@@ -26,80 +26,48 @@ let ws: WebSocket | null = null;
 let localGame: PongGame | null = null;
 let localLoop: number | undefined;
 
-let onMatchFinished: ((s1: number, s2: number) => void) | null = null;
-let lastGameOver = false;
-let localMatchOnceFired = false;
-
-function getStartBtn() {
-  return document.getElementById("startBtn") as HTMLButtonElement;
-}
-
-function getPauseBtn() {
-  return document.getElementById("pauseBtn") as HTMLButtonElement;
-}
-
-
-function getRestartBtn() {
-  return document.getElementById("restartBtn") as HTMLButtonElement;
-}
-
-
-function getSettingsBtn() {
-  return document.getElementById("settingsBtn") as HTMLButtonElement;
-}
-
 let p5Instance: p5 | null = null;
 
-export function showBoardForTournament() {
-  const menu = document.getElementById("menu")!;
-  const gameContainer = document.getElementById("gamecontainer")!;
+// 🔧 vitesse choisie via le slider (0..100). Sert de source de vérité.
+let currentSpeedPercent = 50;
 
-  // Stop toute partie en cours et nettoie les listeners existants
-  cleanupGame();
+let wasRunningBeforeSettings = false; // mémorise l’état avant ouverture du panneau
 
-  // 🔒 retire tous les canvases précédents
-  const canvasRoot = document.getElementById("app")!;
-  canvasRoot.querySelectorAll("canvas").forEach(c => c.remove());
+// ---------------- UI helpers ----------------
+function getStartBtn()   { return document.getElementById("startBtn")    as HTMLButtonElement; }
+function getPauseBtn()   { return document.getElementById("pauseBtn")    as HTMLButtonElement; }
+function getRestartBtn() { return document.getElementById("restartBtn")  as HTMLButtonElement; }
+function getSettingsBtn(){ return document.getElementById("settingsBtn") as HTMLButtonElement; }
 
-  // Affiche la zone de jeu
-  menu.style.display = "none";
-  gameContainer.style.display = "block";
+// Monte le panneau Settings (slider + couleurs). Idempotent.
+function wireSettingsPanel() {
+  const panel      = document.getElementById("settingsPanel")!;
+  const slider     = document.getElementById("speedSlider") as HTMLInputElement | null;
+  const speedValue = document.getElementById("speedValue");
 
-  // (Re)crée UNE instance p5
-  if (p5Instance) { p5Instance.remove(); p5Instance = null; }
-  p5Instance = new p5(sketch(() => latestState), canvasRoot);
-  resumeSketch();
+  if (!panel || !slider || !speedValue) return;
 
-  // --- Boutons visibles ---
-  getStartBtn().style.display    = "block";   // sera caché par startLocalMatch
-  getPauseBtn().style.display    = "block";
-  getRestartBtn().style.display  = "block";
-  getSettingsBtn().style.display = "block";
-  updateCanvasVisibility(true);
+  // init depuis l'état mémorisé
+  slider.value = String(currentSpeedPercent);
+  speedValue.textContent = `${currentSpeedPercent}%`;
 
-  // --- Settings (toggle + apply), listeners frais ---
-  const settingsBtn  = getSettingsBtn();
-  const panel        = document.getElementById("settingsPanel")!;
-  const applyBtn     = document.getElementById("applySettings");
-
-  // retire anciens listeners par "clone"
-  const freshSettings = settingsBtn.cloneNode(true) as HTMLButtonElement;
-  settingsBtn.replaceWith(freshSettings);
-
-  freshSettings.onclick = () => {
-    const show = panel.style.display !== "block";
-    panel.style.display = show ? "block" : "none";
+  // MAJ en direct + applique à la partie en cours
+  slider.oninput = () => {
+    const p = Math.max(0, Math.min(100, Math.round(Number(slider.value) || 0)));
+    currentSpeedPercent = p;
+    speedValue.textContent = `${p}%`;
+    if (localGame) localGame.setSpeedPercent(p);
   };
 
+  // Bouton Apply : n'applique que les couleurs + ferme le panneau
+  const applyBtn = document.getElementById("applySettings") as HTMLButtonElement | null;
   if (applyBtn) {
-    const freshApply = applyBtn.cloneNode(true) as HTMLButtonElement;
-    applyBtn.replaceWith(freshApply);
-    freshApply.onclick = () => {
-      const speed       = (document.getElementById("speedSelect") as HTMLSelectElement).value as "slow" | "medium" | "fast";
+    const fresh = applyBtn.cloneNode(true) as HTMLButtonElement;
+    applyBtn.replaceWith(fresh);
+    fresh.onclick = () => {
       const ballColor   = (document.getElementById("ballColor") as HTMLInputElement).value;
       const paddleColor = (document.getElementById("paddleColor") as HTMLInputElement).value;
       if (localGame) {
-        localGame.setSpeed(speed);
         localGame.setColors(ballColor, paddleColor);
         latestState = {
           ...localGame.state,
@@ -110,15 +78,22 @@ export function showBoardForTournament() {
       panel.style.display = "none";
     };
   }
+
+  // Bouton d’ouverture/fermeture
+  const btn = getSettingsBtn();
+  if (btn) {
+    const freshBtn = btn.cloneNode(true) as HTMLButtonElement;
+    btn.replaceWith(freshBtn);
+    freshBtn.onclick = () => {
+      const show = panel.style.display !== "block";
+      panel.style.display = show ? "block" : "none";
+    };
+  }
 }
 
-// 🔁 Reaffectation propre
-function pauseSketch() {
-  if (p5Instance) p5Instance.noLoop();
-}
-function resumeSketch() {
-  if (p5Instance) p5Instance.loop();
-}
+// ---------------- p5 helpers ----------------
+function pauseSketch()   { if (p5Instance) p5Instance.noLoop(); }
+function resumeSketch()  { if (p5Instance) p5Instance.loop(); }
 function updateCanvasVisibility(visible: boolean) {
   const app = document.getElementById("app")!;
   app.style.display = visible ? "block" : "none";
@@ -130,31 +105,21 @@ function removeEventListeners() {
     const clone = oldPause.cloneNode(true) as HTMLButtonElement;
     oldPause.replaceWith(clone);
   }
-
   const oldRestart = document.getElementById("restartBtn");
   if (oldRestart) {
     const clone = oldRestart.cloneNode(true) as HTMLButtonElement;
     oldRestart.replaceWith(clone);
   }
-
-  getStartBtn().onclick = null;
+  const start = getStartBtn();
+  if (start) start.onclick = null;
 }
 
 function cleanupGame() {
-  console.log("🧹 cleanupGame()");
   pauseSketch();
-
-  if (localLoop) {
-    clearInterval(localLoop);
-    localLoop = undefined;
-  }
-
+  if (localLoop) { clearInterval(localLoop); localLoop = undefined; }
   localGame = null;
 
-  if (ws) {
-    ws.close();
-    ws = null;
-  }
+  if (ws) { ws.close(); ws = null; }
 
   playerIndex = -1;
   isPaused = false;
@@ -162,15 +127,14 @@ function cleanupGame() {
 
   removeEventListeners();
 
-  getStartBtn().style.display = "none";
-
+  const start = getStartBtn();
+  if (start) start.style.display = "none";
   const pause = document.getElementById("pauseBtn") as HTMLButtonElement | null;
   if (pause) pause.textContent = "Pause";
 }
 
-// 🌐 Online mode
+// ---------------- ONLINE ----------------
 export function startOnlineGame() {
-  console.log("🌐 startOnlineGame()");
   mode = "online";
 
   const pause = document.getElementById("pauseBtn") as HTMLButtonElement | null;
@@ -190,19 +154,16 @@ export function startOnlineGame() {
   };
 
   ws.onopen = () => {
-    console.log("✅ WebSocket OPEN");
     getStartBtn().style.display = "block";
     getStartBtn().disabled = false;
 
     restart?.addEventListener("click", () => {
-      console.log("🔁 Online: reset game");
       if (ws?.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({ type: "reset" }));
       }
     });
 
     pause?.addEventListener("click", () => {
-      console.log("⏯️ Online: toggle pause");
       if (ws?.readyState !== WebSocket.OPEN) return;
       isPaused = !isPaused;
       ws.send(JSON.stringify({ type: "pause" }));
@@ -210,7 +171,6 @@ export function startOnlineGame() {
     });
 
     getStartBtn().onclick = () => {
-      console.log("🚀 Online: start game");
       if (ws?.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({ type: "start" }));
         getStartBtn().disabled = true;
@@ -220,23 +180,24 @@ export function startOnlineGame() {
   };
 
   ws.onclose = () => {
-    console.log("🔌 WebSocket CLOSED");
     getStartBtn().style.display = "none";
     if (pause) pause.textContent = "Pause";
   };
 }
 
-// 🖥️ Local mode
+// ---------------- LOCAL (partie simple) ----------------
 export function startLocalGame() {
-  console.log("🖥️ startLocalGame()");
   mode = "local";
   localGame = new PongGame();
+  // applique la vitesse mémorisée
+  localGame.setSpeedPercent(currentSpeedPercent);
+
   latestState = {
-  ...localGame.state,
-  ballColor: localGame.ballColor,
-  paddleColor: localGame.paddleColor
-};
-  console.log("🎯 initial latestState:", latestState);
+    ...localGame.state,
+    ballColor: localGame.ballColor,
+    paddleColor: localGame.paddleColor
+  };
+
   const pause = document.getElementById("pauseBtn") as HTMLButtonElement | null;
   const restart = document.getElementById("restartBtn") as HTMLButtonElement | null;
 
@@ -246,19 +207,16 @@ export function startLocalGame() {
   if (localLoop) clearInterval(localLoop);
   localLoop = window.setInterval(() => {
     if (localGame) {
-      if (!isPaused) {
-        localGame.update();
-      }
+      if (!isPaused) localGame.update();
       latestState = {
         ...localGame.state,
         ballColor: localGame.ballColor,
         paddleColor: localGame.paddleColor
       };
-      console.log("🌀 updated state:", latestState);
     }
   }, 1000 / 60);
+
   getStartBtn().onclick = () => {
-    console.log("🚀 Local: start game");
     if (localGame) {
       localGame.resetBall();
       localGame.Started = true;
@@ -267,97 +225,52 @@ export function startLocalGame() {
     }
   };
 
- pause?.addEventListener("click", () => {
-  if (!localGame) return;
+  // Pause
+  pause?.addEventListener("click", () => {
+    if (!localGame) return;
+    if (localGame.GameOver) return;
+    if (!localGame.Started && !isPaused) return;
 
-  if (localGame.GameOver) {
-    console.log("🚫 Game is over, cannot toggle pause.");
-    return;
-  }
+    isPaused = !isPaused;
+    if (isPaused) {
+      localGame.Started = false;
+      pause.textContent = "Play";
+    } else {
+      localGame.Started = true;
+      pause.textContent = "Pause";
+    }
+  });
 
-  // Si le jeu n’a jamais été démarré (par 'Lancer la partie'), on ne fait rien
-  if (!localGame.Started && !isPaused) {
-    console.log("🚫 Game not started yet, cannot pause.");
-    return;
-  }
-
-  isPaused = !isPaused;
-
-  if (isPaused) {
-    localGame.Started = false;
-    pause.textContent = "Play";
-    console.log("⏸ Game paused");
-  } else {
-    localGame.Started = true;
-    pause.textContent = "Pause";
-    console.log("▶️ Game resumed");
-  }
-});
-
-
+  // Restart — conserve currentSpeedPercent
   restart?.addEventListener("click", () => {
-    console.log("🔁 Local: reset game");
     localGame = new PongGame();
+    localGame.setSpeedPercent(currentSpeedPercent); // <—
     latestState = localGame.state;
     localGame.resetBall();
 
     isPaused = true;
     localGame.Started = false;
     localGame.GameOver = false;
-    if (pause) pause.textContent = "Play";  // 🔁 remet le texte correct
+    if (pause) pause.textContent = "Play";
 
     getStartBtn().disabled = false;
     getStartBtn().style.display = "block";
 
-   if (localLoop) clearInterval(localLoop);
+    if (localLoop) clearInterval(localLoop);
     localLoop = window.setInterval(() => {
-     if (localGame) {
-      if (!isPaused) {
-        localGame.update();
-      }
-      latestState = {
-        ...localGame.state,
-        ballColor: localGame.ballColor,
-        paddleColor: localGame.paddleColor
+      if (localGame) {
+        if (!isPaused) localGame.update();
+        latestState = {
+          ...localGame.state,
+          ballColor: localGame.ballColor,
+          paddleColor: localGame.paddleColor
         };
-        console.log("🌀 updated state:", latestState);
-     }
+      }
     }, 1000 / 60);
   });
 }
 
-// 🎮 Clavier
-document.addEventListener("keydown", (e) => {
-  if (mode === "online" && ws?.readyState === WebSocket.OPEN) {
-    let msg: ClientMessage | null = null;
-    if (e.key === "ArrowUp") msg = { type: "input", direction: "up" };
-    else if (e.key === "ArrowDown") msg = { type: "input", direction: "down" };
-    if (msg) ws.send(JSON.stringify(msg));
-  }
-
-  if (mode === "local" && localGame) {
-    if (e.key === "w") localGame.p1Dir = "up";
-    else if (e.key === "s") localGame.p1Dir = "down";
-    else if (e.key === "ArrowUp") localGame.p2Dir = "up";
-    else if (e.key === "ArrowDown") localGame.p2Dir = "down";
-  }
-});
-
-document.addEventListener("keyup", (e) => {
-  if (mode === "online" && ws?.readyState === WebSocket.OPEN) {
-    if (e.key === "ArrowUp" || e.key === "ArrowDown") {
-      const msg: ClientMessage = { type: "input", direction: "stop" };
-      ws.send(JSON.stringify(msg));
-    }
-  }
-
-  if (mode === "local" && localGame) {
-    if (e.key === "w" || e.key === "s") localGame.p1Dir = "stop";
-    if (e.key === "ArrowUp" || e.key === "ArrowDown") localGame.p2Dir = "stop";
-  }
-});
-
-// SPA
+// ---------------- SPA nav inside game container ----------------
 function navigateTo(page: "menu" | "game-local" | "game-online") {
   history.pushState({ page }, "", `#${page}`);
   renderPage(page);
@@ -371,9 +284,7 @@ export function __forceRender(page: "game-local" | "game-online" | "menu") {
   renderPage(page);
 }
 
-
 function renderPage(page: string) {
-  console.log("📄 renderPage:", page);
   const menu = document.getElementById("menu")!;
   const gameContainer = document.getElementById("gamecontainer")!;
   switch (page) {
@@ -398,52 +309,22 @@ function renderPage(page: string) {
       const canvas = document.getElementById("app");
       if (canvas) {
         canvas.querySelectorAll("canvas").forEach(c => c.remove());
-        if (p5Instance) {
-          p5Instance.remove();
-          p5Instance = null;
-        }
+        if (p5Instance) { p5Instance.remove(); p5Instance = null; }
 
         p5Instance = new p5(sketch(() => latestState), canvas);
         resumeSketch();
         startLocalGame();
+
+        // Settings panel dispo + relié
+        getStartBtn().style.display    = "block";
+        getPauseBtn().style.display    = "block";
+        getRestartBtn().style.display  = "block";
+        getSettingsBtn().style.display = "block";
+        updateCanvasVisibility(true);
+        wireSettingsPanel();
       } else {
         console.error("❌ canvas #app not found!");
       }
-      const settingsBtn = document.getElementById("settingsBtn");
-      const panel = document.getElementById("settingsPanel")!;
-      const applyBtn = document.getElementById("applySettings");
-
-      if (settingsBtn && panel) {
-        settingsBtn.addEventListener("click", () => {
-          const isVisible = panel.style.display === "block";
-          panel.style.display = isVisible ? "none" : "block";
-        });
-      }
-
-      if (applyBtn) {
-      applyBtn.addEventListener("click", () => {
-        const speed = (document.getElementById("speedSelect") as HTMLSelectElement).value as "slow" | "medium" | "fast";
-        const ballColor = (document.getElementById("ballColor") as HTMLInputElement).value;
-        const paddleColor = (document.getElementById("paddleColor") as HTMLInputElement).value;
-
-        if (localGame) {
-          localGame.setSpeed(speed);
-          localGame.setColors(ballColor, paddleColor);
-          latestState = {
-            ...localGame.state,
-            ballColor: localGame.ballColor,
-            paddleColor: localGame.paddleColor
-          };
-        }
-
-        panel.style.display = "none";
-      });
-      }
-      getStartBtn().style.display = "block";
-      getPauseBtn().style.display = "block";
-      getRestartBtn().style.display = "block";
-      getSettingsBtn().style.display = "block";
-      updateCanvasVisibility(true);
       break;
 
     case "game-online":
@@ -460,60 +341,60 @@ function renderPage(page: string) {
   }
 }
 
-// Init
-// window.addEventListener("DOMContentLoaded", () => {
-//   const localBtn = document.getElementById("localBtn")!;
-//   const onlineBtn = document.getElementById("onlineBtn")!;
-//   const page = history.state?.page || "menu";
+// Init (pour l'ancien menu interne si utilisé)
+window.addEventListener("DOMContentLoaded", () => {
+  const localBtn = document.getElementById("localBtn") as HTMLButtonElement | null;
+  const onlineBtn = document.getElementById("onlineBtn") as HTMLButtonElement | null;
+  const page = history.state?.page || "menu";
 
-//   renderPage(page);
+  renderPage(page);
 
-//   localBtn.addEventListener("click", () => navigateTo("game-local"));
-//   onlineBtn.addEventListener("click", () => navigateTo("game-online"));
-// });
+  localBtn?.addEventListener("click", () => navigateTo("game-local"));
+  onlineBtn?.addEventListener("click", () => navigateTo("game-online"));
+});
 
-// window.addEventListener("popstate", () => {
-//   const page = history.state?.page || "menu";
-//   renderPage(page);
-// });
+window.addEventListener("popstate", () => {
+  const page = history.state?.page || "menu";
+  renderPage(page);
+});
 
+// ---------------- Tournoi: scène unique + jeu auto ----------------
+export function showBoardForTournament() {
+  const menu = document.getElementById("menu")!;
+  const gameContainer = document.getElementById("gamecontainer")!;
 
-// ==== TOURNOI LOCAL ====
+  cleanupGame();
 
-export function prepareLocalBoard() {
-  const canvas = document.getElementById("app");
-  if (canvas) {
-    // évite doublons si un sketch existait déjà
-    (window as any).__p5Instance?.remove?.();
-    const instance = new p5(sketch(() => latestState), canvas);
-    (window as any).__p5Instance = instance;
-    p5Instance = instance;
-    updateCanvasVisibility(true);
-  }
-}
+  // retire tous les canvases précédents
+  const canvasRoot = document.getElementById("app")!;
+  canvasRoot.querySelectorAll("canvas").forEach(c => c.remove());
 
-function getScoresFromState(st: any): { s1: number; s2: number } {
-  const sc = st?.score || {};
-  // essaie p1/p2 puis left/right puis 0
-  const s1 = (typeof sc.p1 === "number" ? sc.p1 : (typeof sc.left === "number" ? sc.left : 0)) | 0;
-  const s2 = (typeof sc.p2 === "number" ? sc.p2 : (typeof sc.right === "number" ? sc.right : 0)) | 0;
-  return { s1, s2 };
+  menu.style.display = "none";
+  gameContainer.style.display = "block";
+
+  if (p5Instance) { p5Instance.remove(); p5Instance = null; }
+  p5Instance = new p5(sketch(() => latestState), canvasRoot);
+  resumeSketch();
+
+  getStartBtn().style.display    = "block";   // caché au démarrage du match
+  getPauseBtn().style.display    = "block";
+  getRestartBtn().style.display  = "block";
+  getSettingsBtn().style.display = "block";
+  updateCanvasVisibility(true);
+
+  wireSettingsPanel();
 }
 
 /**
- * Lance un match local p1 vs p2 et appelle onEnd({p1,p2,s1,s2}) quand le match se termine.
+ * Lance un match local p1 vs p2 et appelle onEnd({ p1, p2, s1, s2 }) à la fin.
+ * IMPORTANT: ne crée PAS de nouveau canvas. Le canvas doit être monté par showBoardForTournament().
  */
-  /**
- * Lance un match local p1 vs p2 et appelle onEnd({p1,p2,s1,s2}) quand le match se termine.
- * IMPORTANT: ne crée PAS de nouveau canvas. Le canvas est créé par forceGameRender("game-local").
- */
-
-  export function startLocalMatch(
+export function startLocalMatch(
   p1: string,
   p2: string,
   onEnd: (res: { p1: string; p2: string; s1: number; s2: number }) => void
 ) {
-  // On suppose que showBoardForTournament a déjà monté le canvas
+  // Nettoie une éventuelle boucle
   if (localLoop) { clearInterval(localLoop); localLoop = undefined; }
 
   mode = "local";
@@ -521,6 +402,7 @@ function getScoresFromState(st: any): { s1: number; s2: number } {
 
   const startFreshGame = () => {
     localGame = new PongGame();
+    localGame.setSpeedPercent(currentSpeedPercent); // <— applique la vitesse courante
     localGame.GameOver = false;
     localGame.Started  = true;
     latestState = {
@@ -532,38 +414,38 @@ function getScoresFromState(st: any): { s1: number; s2: number } {
 
   startFreshGame();
 
-  // --- Boutons: listeners "propres" (anti-doublons via clone) ---
   // Start: caché en tournoi (la partie démarre direct)
   const startBtn = getStartBtn();
   startBtn.style.display = "none";
 
-  // Pause
-  const oldPause = getPauseBtn();
-  const pauseBtn = oldPause.cloneNode(true) as HTMLButtonElement;
-  oldPause.replaceWith(pauseBtn);
-  pauseBtn.textContent = "Pause";
-  pauseBtn.onclick = () => {
-    if (!localGame || localGame.GameOver) return;
-    isPaused = !isPaused;
-    localGame.Started = !isPaused;
-    pauseBtn.textContent = isPaused ? "Play" : "Pause";
-  };
+  // Pause (listeners propres)
+  {
+    const oldPause = getPauseBtn();
+    const pauseBtn = oldPause.cloneNode(true) as HTMLButtonElement;
+    oldPause.replaceWith(pauseBtn);
+    pauseBtn.textContent = "Pause";
+    pauseBtn.onclick = () => {
+      if (!localGame || localGame.GameOver) return;
+      isPaused = !isPaused;
+      localGame.Started = !isPaused;
+      pauseBtn.textContent = isPaused ? "Play" : "Pause";
+    };
+  }
 
-  // Restart: redémarre le match courant (mêmes joueurs)
-  const oldRestart = getRestartBtn();
-  const restartBtn = oldRestart.cloneNode(true) as HTMLButtonElement;
-  oldRestart.replaceWith(restartBtn);
-  restartBtn.onclick = () => {
-    // stop loop courante
-    if (localLoop) { clearInterval(localLoop); localLoop = undefined; }
-    // relance une partie neuve
-    isPaused = false;
-    startFreshGame();
-    // relance la boucle (voir plus bas)
-    loopStart();
-  };
+  // Restart (conserve currentSpeedPercent)
+  {
+    const oldRestart = getRestartBtn();
+    const restartBtn = oldRestart.cloneNode(true) as HTMLButtonElement;
+    oldRestart.replaceWith(restartBtn);
+    restartBtn.onclick = () => {
+      if (localLoop) { clearInterval(localLoop); localLoop = undefined; }
+      isPaused = false;
+      startFreshGame(); // <- recrée le jeu + setSpeedPercent
+      loopStart();
+    };
+  }
 
-  // --- Boucle de jeu ---
+  // Boucle de jeu
   const loopStart = () => {
     localLoop = window.setInterval(() => {
       if (!localGame) return;
@@ -591,3 +473,63 @@ function getScoresFromState(st: any): { s1: number; s2: number } {
   loopStart();
 }
 
+// === Clavier (idempotent: on enlève d'abord d'éventuels anciens handlers) ===
+(function wireKeyboard() {
+  // Pour éviter doublons : on supprime puis ré-attache
+  const anyDoc = document as any;
+  if (anyDoc.__pongKeydown) document.removeEventListener('keydown', anyDoc.__pongKeydown);
+  if (anyDoc.__pongKeyup)   document.removeEventListener('keyup',   anyDoc.__pongKeyup);
+
+  const isTextInputFocused = () => {
+    const el = document.activeElement as HTMLElement | null;
+    if (!el) return false;
+    const tag = el.tagName.toLowerCase();
+    return tag === 'input' || tag === 'textarea' || el.isContentEditable;
+  };
+
+  const onKeyDown = (e: KeyboardEvent) => {
+    // Si on tape dans un champ (ex: le slider/couleurs), on ne touche pas aux paddles
+    if (isTextInputFocused()) return;
+
+    if (mode === "online" && ws?.readyState === WebSocket.OPEN) {
+      if (e.key === "ArrowUp")   ws.send(JSON.stringify({ type: "input", direction: "up" }));
+      if (e.key === "ArrowDown") ws.send(JSON.stringify({ type: "input", direction: "down" }));
+      return;
+    }
+
+    if (mode === "local" && localGame) {
+      // Joueur 1
+      if (e.key === "w" || e.key === "W") localGame.p1Dir = "up";   // AZERTY friendly (Z/W)
+      if (e.key === "s" || e.key === "S") localGame.p1Dir = "down";
+      // Joueur 2
+      if (e.key === "ArrowUp")   localGame.p2Dir = "up";
+      if (e.key === "ArrowDown") localGame.p2Dir = "down";
+    }
+  };
+
+  const onKeyUp = (e: KeyboardEvent) => {
+    if (isTextInputFocused()) return;
+
+    if (mode === "online" && ws?.readyState === WebSocket.OPEN) {
+      if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+        ws.send(JSON.stringify({ type: "input", direction: "stop" }));
+      }
+      return;
+    }
+
+    if (mode === "local" && localGame) {
+      if (e.key === "w" || e.key === "W" || e.key === "s" || e.key === "S") {
+        localGame.p1Dir = "stop";
+      }
+      if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+        localGame.p2Dir = "stop";
+      }
+    }
+  };
+
+  document.addEventListener('keydown', onKeyDown);
+  document.addEventListener('keyup',   onKeyUp);
+
+  anyDoc.__pongKeydown = onKeyDown;
+  anyDoc.__pongKeyup   = onKeyUp;
+})();

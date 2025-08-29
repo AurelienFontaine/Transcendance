@@ -59,12 +59,11 @@ export function renderPlay() {
           </div>
 
           <div id="settingsPanel" style="display:none; position:absolute; top:40px; right:10px; background:#153bbb; padding:0.5rem; width:220px; font-size:0.9rem; border-radius:8px; box-shadow:0 4px 10px rgba(0,0,0,0.3); color:white;">
-            <label>Speed :
-              <select id="speedSelect">
-                <option value="slow">Slow</option>
-                <option value="medium" selected>Medium</option>
-                <option value="fast">FAAST</option>
-              </select>
+            <label class="block mb-2">Vitesse :
+              <div class="flex items-center gap-2">
+                <input id="speedSlider" type="range" min="1" max="100" value="50" />
+                <span id="speedValue" class="inline-block w-12 text-right">50%</span>
+              </div>
             </label>
             <br/>
             <label>Ball color :
