@@ -311,47 +311,63 @@ fastify.get('/users/:name/stats', async (request, reply) => {
 });
 
 // Historique de match d’un user par nom
+// Historique du joueur connecté par nom
     fastify.get('/users/:name/history', async (request, reply) => {
-    const { name } = request.params;
+    const name = request.params.name;
 
-    const user = db.prepare('SELECT id FROM users WHERE name = ?').get(name);
-    if (!user) return reply.status(404).send({ error: 'Utilisateur introuvable' });
+    // Récupère l'utilisateur par son nom
+    const user = db.prepare('SELECT id, name FROM users WHERE name = ?').get(name);
+    if (!user) {
+        return reply.status(404).send({ error: 'Utilisateur introuvable' });
+    }
 
-    const uid = user.id;
-
+    // On récupère ses 50 derniers matchs (tu peux mettre LIMIT 10 si tu veux)
     const rows = db.prepare(`
         SELECT
         g.id,
-        g.date,
         g.fp_id, g.sp_id,
         g.fp_score, g.sp_score,
-        u1.name AS p1Name,
-        u2.name AS p2Name
+        g.date,
+        u1.name AS fp_name,
+        u2.name AS sp_name
         FROM games g
         JOIN users u1 ON u1.id = g.fp_id
         JOIN users u2 ON u2.id = g.sp_id
         WHERE g.fp_id = ? OR g.sp_id = ?
-        ORDER BY g.date DESC, g.id DESC
-        LIMIT 100
-    `).all(uid, uid);
+        ORDER BY datetime(g.date) DESC
+        LIMIT 50
+    `).all(user.id, user.id);
 
-    const history = rows.map(r => {
-        const iAmP1 = r.fp_id === uid;
+    const matches = rows.map((r) => {
+        const meIsFirst = r.fp_id === user.id;
+        const myScore   = meIsFirst ? r.fp_score : r.sp_score;
+        const oppScore  = meIsFirst ? r.sp_score : r.fp_score;
+
+        // Cas particulier Quick Play: self vs self
+        let meLabel, oppLabel;
+        if (r.fp_id === user.id && r.sp_id === user.id) {
+        meLabel  = 'Player1';
+        oppLabel = 'Player2';
+        } else {
+        meLabel  = user.name;
+        oppLabel = meIsFirst ? r.sp_name : r.fp_name;
+        }
+
+        const result = myScore > oppScore ? 'W' : (myScore < oppScore ? 'L' : 'D');
+
         return {
         id: r.id,
+        me: meLabel,
+        opponent: oppLabel,
+        myScore,
+        oppScore,
         date: r.date,
-        me: iAmP1 ? r.p1Name : r.p2Name,
-        opponent: iAmP1 ? r.p2Name : r.p1Name,
-        myScore: iAmP1 ? r.fp_score : r.sp_score,
-        oppScore: iAmP1 ? r.sp_score : r.fp_score,
-        result: (iAmP1 ? r.fp_score : r.sp_score) > (iAmP1 ? r.sp_score : r.fp_score) ? 'W' :
-                (iAmP1 ? r.fp_score : r.sp_score) < (iAmP1 ? r.sp_score : r.fp_score) ? 'L' : 'D'
-            };
-        });
-
-    return { name, matches: history };
+        result, // 'W' ou 'L' (ou 'D' si jamais il y avait un nul)
+        };
     });
 
+    return { matches };
+    });
 
     // Verifier le token JWT user et return un 401 si token invalide
     fastify.get('/me', {
