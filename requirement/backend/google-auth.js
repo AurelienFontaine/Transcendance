@@ -10,6 +10,14 @@ const REDIRECT_URI = process.env.GOOGLE_REDIRECT_URI;
 //fct ajoute les routes necessaires a l'auth google, prend 2 arg:
 // - l'instance du serveur backend "fastify" pour declarer les routes
 // - hashPassword: fct de hashage de mdp
+
+
+function generateRandomPassword(length = 16) {
+	return (crypto.randomBytes(length).toString('hex')); // genere un mdp aleatoire de 16 caracteres
+}
+
+
+
 function registerGoogleAuthRoutes(fastify, hashPassword) {
 
 	// Redirection vers la page Google, declare la route /auth/google, ne renvoie pas de contenu html, redirige directement vers google
@@ -69,29 +77,61 @@ function registerGoogleAuthRoutes(fastify, hashPassword) {
 			const { name, email, sub } = userInfoResponse.data; //destructuring
 
 			//interroge la base SQLite, verifie si l'user existe deja, si user = undefined, il faut le creer
-			let user = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
+			// let firstTime = false;
+			// if (!user) { //si mail non existant dans db, on l'ajoute
+			// 	//utilisation du sub pour creer un mdp hashed, vu que l'user n'en a pas choisi un
+			// 	const dummyPassword = await hashPassword(sub);
+			
+			// 	const checkUserName = db.prepare('SELECT * FROM users WHERE name = ?').get(name);
+			// 	if (!checkUserName)
+			// 	{//requete SQL pour injecter le nouv user avec les infos de google dans la tab users
+			// 		const insert = db.prepare('INSERT INTO users (name, email, password_hash) VALUES (?, ?, ?)').run(name, email, dummyPassword);
+			// 	}else{const insert = db.prepare('INSERT INTO users (name, email, password_hash) VALUES (?, ?, ?)').run(email, email, dummyPassword);}
+			// 	//initialisation variable javascript user avec les infos du nouv utilisateur (but?: recup l'id et le reutiliser pour signe un token JWT)
+			// 	user = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
+			// 	firstTime = true;
+			// }
+			
+			// Gerer le cas du name deja existant:
+			let username = name;
 			let firstTime = false;
-			if (!user) { //si mail non existant dans db, on l'ajoute
-				//utilisation du sub pour creer un mdp hashed, vu que l'user n'en a pas choisi un
-				const dummyPassword = await hashPassword(sub);
-
-				const checkUserName = db.prepare('SELECT * FROM users WHERE name = ?').get(name);
-				if (!checkUserName)
-				{//requete SQL pour injecter le nouv user avec les infos de google dans la tab users
-					const insert = db.prepare('INSERT INTO users (name, email, password_hash) VALUES (?, ?, ?)').run(name, email, dummyPassword);
-				}else{const insert = db.prepare('INSERT INTO users (name, email, password_hash) VALUES (?, ?, ?)').run(email, email, dummyPassword);}
-				//initialisation variable javascript user avec les infos du nouv utilisateur (but?: recup l'id et le reutiliser pour signe un token JWT)
-				user = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
+			let user = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
+			if (!user)
 				firstTime = true;
+
+			if (firstTime)
+			{
+				name = email; //Le login d'un user google sera toujours son email mais il sera impossible de rentrer a la main un mail donc impossible d'avoir une duplicite
+				const randomPassword = await hashPassword(generateRandomPassword());
+
+				// Gerer le cas de l'username deja existant:
+				username = name;
+				let username_tmp = username;
+				i = 1;
+				while (db.prepare('SELECT id FROM users WHERE username = ?').get(username_tmp)) {
+					username_tmp = `${username}${i}`;
+					i++;
+				}
+				username = username_tmp;
+				// Creer l'user :
+				user = db.prepare('INSERT INTO users (name, email, username, password_hash) VALUES (?, ?, ?, ?)').run(name, email, username, randomPassword);
 			}
+			const token = fastify.jwt.sign({ id: user.id, username: user.username });
+			return {
+				token,
+				name: user.name,
+				username: user.username,
+				firstTime
+			};
+			
 
 			//creation/signature d'un JWT, contient l'id et le name du user, permet de l'identifier plus tard
 			//prouve que l'user est bien authentifie, necessaire a chaque connexion
-			const token = fastify.jwt.sign({ id: user.id, name: user.name, firstTime });
+			// const token = fastify.jwt.sign({ id: user.id, name: user.name, firstTime });
 
 			//redirection vers le front port 8080, ajout du token et du nom pour que le front end le stock dans local storage
 			//localStorage (=wone de stockage locale dans le nav, appartient au site, persistante si on ferme l'onglet ou rafraichis, on y accede en javascript)
-			reply.redirect(`http://localhost:8080/profile?token=${token}&name=${encodeURIComponent(user.name)}&firstTime=${firstTime}`);
+			// reply.redirect(`http://localhost:8080/profile?token=${token}&name=${encodeURIComponent(user.name)}&firstTime=${firstTime}`);
 			//a securiser !!! -> il vaut mieux stocker dans des cookies httpOnly pour eviter les attaques XSS
 		
 		} catch (err) { //interception d'erreurs

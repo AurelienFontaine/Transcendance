@@ -251,6 +251,124 @@ async function start(){
                 return (reply.status(400).send({ error: err.message }));
             }
     });
+
+    fastify.put('/me/password', { //gerer le changement de mdp
+        preHandler: [fastify.authenticate],
+        schema: {
+            body: {
+                type: 'object',
+                required: ['oldPassword', 'newPassword'],
+                properties: {
+                    oldPassword: { type: 'string', minLength: 3 },
+                    newPassword: { type: 'string', minLength: 3 }
+                }
+            },
+            response: {
+                200: { //OK
+                    type: 'object',
+                    properties: {
+                        success: { type: 'boolean' },
+                        username: { type: 'string' },
+                        token: {type: 'string' }
+                    }
+                },
+                400: { //Erreur auto
+                    type: 'object',
+                    properties: { error: { type: 'string' } }
+                },
+                401: { //Erreur manuelle ou BDD
+                    type: 'object',
+                    properties: { error: { type: 'string' } }
+                },
+                409: { //Erreur conflit logique souvent doublon ou autre
+                    type: 'object',
+                    properties: { error: { type: 'string' } }
+                }
+            }
+        } 
+    }, async (request, reply) => {
+            const { oldPassword, newPassword } = request.body;
+            const userId = request.user.id;
+            const username = request.user.username;
+            try {
+                // Verifier l'user et l'ancien mdp + hasher le nouveau mdp et le remplacer
+                const user = db.prepare('SELECT * FROM users WHERE id = ?').get(userId);
+                if (!user)
+                    return (reply.status(401).send({ error: 'User not found' }));
+
+                const isValid = await checkPassword(oldPassword, user.password_hash);
+                if (!isValid)
+                    return (reply.status(401).send({ error: 'Mot de passe incorrect' }));
+                
+                const password_hash = await hashPassword(newPassword);
+                const stmt = db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(password_hash, userId);
+
+                const newToken = fastify.jwt.sign({id: userId, username: username });
+                return { success: true, username, token: newToken };
+            } catch (err) {
+                return (reply.status(400).send({ error: err.message }));
+            }
+    });
+
+
+
+    fastify.put('/me/googlePassword', { //gerer le changement de mdp
+        preHandler: [fastify.authenticate],
+        schema: {
+            body: {
+                type: 'object',
+                required: ['password', 'confirmPassword'],
+                properties: {
+                    password: { type: 'string', minLength: 3 },
+                    confirmPassword: { type: 'string', minLength: 3 }
+                }
+            },
+            response: {
+                200: { //OK
+                    type: 'object',
+                    properties: {
+                        success: { type: 'boolean' },
+                        username: { type: 'string' },
+                        token: {type: 'string' }
+                    }
+                },
+                400: { //Erreur auto
+                    type: 'object',
+                    properties: { error: { type: 'string' } }
+                },
+                401: { //Erreur manuelle ou BDD
+                    type: 'object',
+                    properties: { error: { type: 'string' } }
+                },
+                409: { //Erreur conflit logique souvent doublon ou autre
+                    type: 'object',
+                    properties: { error: { type: 'string' } }
+                }
+            }
+        } 
+    }, async (request, reply) => {
+            const { password, confirmPassword } = request.body;
+            const userId = request.user.id;
+            const username = request.user.username;
+            try {
+                // Verifier l'user et l'ancien mdp + hasher le nouveau mdp et le remplacer
+                const user = db.prepare('SELECT * FROM users WHERE id = ?').get(userId);
+                if (!user)
+                    return (reply.status(401).send({ error: 'User not found' }));
+                
+                if (password != confirmPassword)
+                    return (reply.status(401).send({ error: 'both password are not equal' }));
+                
+                const password_hash = await hashPassword(password);
+                const stmt = db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(password_hash, userId);
+
+                const newToken = fastify.jwt.sign({id: userId, username: username });
+                return { success: true, username, token: newToken };
+            } catch (err) {
+                return (reply.status(400).send({ error: err.message }));
+            }
+    });
+
     //Demarrer le serveur
     
     try {
