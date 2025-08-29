@@ -243,6 +243,41 @@ function slugifyName(name) {
     return { success: true, gameId: info.lastInsertRowid };
     });
 
+    // Enregistre une partie "Quick Play" : le user connecté est fp_id ET sp_id.
+// Le front n'envoie que les scores; on n'invente pas de joueurs "Player1/Player2" côté BDD.
+    fastify.post('/game/quick-result', {
+    preHandler: [fastify.authenticate],
+    schema: {
+        body: {
+        type: 'object',
+        required: ['s1', 's2'],
+        properties: {
+            s1: { type: 'integer', minimum: 0 },
+            s2: { type: 'integer', minimum: 0 },
+        }
+        },
+        response: {
+        200: {
+            type: 'object',
+            properties: {
+            success: { type: 'boolean' },
+            gameId: { type: 'number' },
+            }
+        }
+        }
+    }
+    }, async (request, reply) => {
+    const userId = request.user.id;
+    const { s1, s2 } = request.body;
+    const game_status = 1; // terminé
+
+    const info = db.prepare(`
+        INSERT INTO games (fp_id, sp_id, fp_score, sp_score, game_status)
+        VALUES (?, ?, ?, ?, ?)
+    `).run(userId, userId, s1, s2, game_status);
+
+    return { success: true, gameId: info.lastInsertRowid };
+    });
 
     // Stats simples pour un user par nom
 fastify.get('/users/:name/stats', async (request, reply) => {

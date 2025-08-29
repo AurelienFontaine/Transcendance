@@ -30,6 +30,7 @@ let p5Instance: p5 | null = null;
 
 // 🔧 vitesse choisie via le slider (0..100). Sert de source de vérité.
 let currentSpeedPercent = 50;
+let quickReported = false; // used only for Quick Play (startLocalGame)
 
 let wasRunningBeforeSettings = false; // mémorise l’état avant ouverture du panneau
 
@@ -191,6 +192,7 @@ export function startLocalGame() {
   localGame = new PongGame();
   // applique la vitesse mémorisée
   localGame.setSpeedPercent(currentSpeedPercent);
+  quickReported = false;
 
   latestState = {
     ...localGame.state,
@@ -213,6 +215,27 @@ export function startLocalGame() {
         ballColor: localGame.ballColor,
         paddleColor: localGame.paddleColor
       };
+
+      if (localGame.GameOver && !quickReported) {
+        quickReported = true;
+        const s1 = localGame.state.score.p1 ?? 0;
+        const s2 = localGame.state.score.p2 ?? 0;
+        const token = localStorage.getItem('token');
+
+        if (token) {
+          fetch('http://localhost:3000/game/quick-result', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              s1,
+              s2,
+            }),
+          }).catch(e => console.warn('Quick Play save failed:', e));
+        }
+      }
     }
   }, 1000 / 60);
 
@@ -245,6 +268,7 @@ export function startLocalGame() {
   restart?.addEventListener("click", () => {
     localGame = new PongGame();
     localGame.setSpeedPercent(currentSpeedPercent); // <—
+    quickReported = false;
     latestState = localGame.state;
     localGame.resetBall();
 

@@ -77,33 +77,33 @@ export function setupProfilePage() {
   ).slice(0, 10);
 
   const html = last10
-    .map((m: any) => {
-      const isVictory = m.result === 'W';
+  .map((m: any) => {
+    const isVictory = m.result === 'W';
 
-      // Texte + style selon résultat
-      const resultLabel = isVictory ? 'Victoire' : 'Défaite';
-      const cardBg = isVictory ? 'bg-green-200' : 'bg-red-200';
-      const borderClr = isVictory ? 'border-green-400' : 'border-red-400';
-      const textClr = 'text-gray-900';
+    const resultLabel = isVictory ? 'Victoire' : 'Défaite';
+    const cardBg = isVictory ? 'bg-green-200' : 'bg-red-200';
+    const borderClr = isVictory ? 'border-green-400' : 'border-red-400';
 
-      const when = new Date(m.date).toLocaleString();
+    const when = new Date(m.date).toLocaleString();
 
-      return `
-        <div class="${cardBg} ${textClr} border ${borderClr} rounded-lg p-4 shadow space-y-2">
-          <div class="flex flex-wrap items-center gap-3">
-            <span class="font-bold">${resultLabel}</span>
-            <span class="opacity-60">•</span>
-            <span><span class="font-semibold">Username :</span> ${m.me}</span>
-            <span class="opacity-60">•</span>
-            <span><span class="font-semibold">Score :</span> ${m.myScore} - ${m.oppScore}</span>
-            <span class="opacity-60">•</span>
-            <span><span class="font-semibold">Adversaire :</span> ${m.opponent}</span>
-          </div>
-          <div class="text-xs opacity-70">${when}</div>
-        </div>
-      `;
-    })
-    .join('');
+    return `
+    <div class="${cardBg} border ${borderClr} rounded-lg p-4 shadow space-y-2">
+      <div class="flex flex-wrap items-center gap-3">
+        <span class="font-bold text-black">${resultLabel}</span>
+        <span class="opacity-60 text-black">•</span>
+        <span class="text-black"><span class="font-semibold">Username :</span> ${m.me}</span>
+        <span class="opacity-60 text-black">•</span>
+        <span class="text-black"><span class="font-semibold">Score :</span> ${m.myScore} - ${m.oppScore}</span>
+        <span class="opacity-60 text-black">•</span>
+        <span class="text-black"><span class="font-semibold">Adversaire :</span> ${m.opponent}</span>
+      </div>
+      <div class="text-xs opacity-70 text-black">${when}</div>
+    </div>
+  `;
+
+  })
+  .join('');
+
 
     historyDiv.innerHTML = html;
 
