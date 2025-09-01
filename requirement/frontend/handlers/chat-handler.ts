@@ -98,8 +98,32 @@ export async function chatHandler() {
 		li.textContent = friend.name;
 		li.style.cursor = "pointer";
 
+		li.addEventListener("click", () => {
+			console.log(`👆 Click détecté sur ${friend.name}`);
+			if (!chatWith || !chatSection || !chatMessages) {
+				console.warn("❌ Élément manquant dans le DOM");
+				return;
+			}
+			chatWith.textContent = `Chat avec ${friend.name}`;
+			chatSection.style.display = "block";
+			document.getElementById("defaultChatMessage")?.classList.add("hidden");
+			chatMessages.innerHTML = ""; // vide l'ancien chat
+		});
+		// Écoute clavier pour envoyer un message
+
 		friendsList.appendChild(li);
 	});
+
+	if (chatInput && chatMessages) {
+		chatInput.addEventListener("keypress", (e) => {
+			if (e.key === "Enter" && chatInput.value.trim() !== "") {
+				const message = `Moi : ${chatInput.value}`;
+				appendMessageToChat(message);
+				chatInput.value = "";
+			}
+		});
+	}
+
 	console.log("friendsList.innerHTML final :", friendsList?.innerHTML);
 
 }
@@ -117,5 +141,15 @@ async function fetchFriends(): Promise<{ id : number, name: string }[]> {
 	if (!res.ok) return [];
 	const data = await res.json();
 	return data.friends;
+}
+
+function appendMessageToChat(content: string) {
+	const chatMessages = document.getElementById("chat-messages");
+	if (!chatMessages) return;
+
+	const p = document.createElement("p");
+	p.textContent = content;
+	chatMessages.appendChild(p);
+	chatMessages.scrollTop = chatMessages.scrollHeight; // scroll vers le bas
 }
 
