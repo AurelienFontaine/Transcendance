@@ -7,7 +7,8 @@ db.prepare(`
         name TEXT NOT NULL UNIQUE,
         email TEXT NOT NULL UNIQUE,
         password_hash TEXT NOT NULL,
-        mmr INTEGER DEFAULT 0 CHECK (mmr >= 0 AND mmr <= 10)
+		username TEXT NOT NULL DEFAULT robot,
+        win INTEGER DEFAULT 0
     )
 `).run();
 
