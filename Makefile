@@ -29,9 +29,7 @@ destroy: clean
 	docker system df
 
 log:
-	docker compose -f $(COMPOSE_PATH) logs -f chat
-	docker compose -f $(COMPOSE_PATH) logs backend
-	docker compose -f $(COMPOSE_PATH) logs frontend
+	docker compose -f $(COMPOSE_PATH) logs chat backend frontend
 
 ls:
 	@echo "📦 Containers :"
