@@ -58,9 +58,7 @@ export async function chatHandler() {
 				alert("Ami ajouté !");
 				friendNameInput.value = "";
 				await chatHandler(); // recharge amis
-			} else {
-				alert(data.error || "Erreur");
-			}
+			} else { alert(data.error || "Erreur");	}
 		});
 		addFriendForm.setAttribute("data-initialized", "true");
 	}
@@ -77,39 +75,29 @@ export async function chatHandler() {
 	if (!chatInput)		console.warn("Champ 'chat-input' introuvable.");
 	if (!chatMessages)	console.warn("Zone 'chat-messages' introuvable.");
 	if (!friendsList || !chatSection || !chatWith ) return;
-	//if (!chatInput || !chatMessages) return;
 
 	const friends = await fetchFriends();
 	console.log("Amis récupérés :", friends);
 	friendsList.innerHTML = "";
 
-	if (!Array.isArray(friends)) {
-		console.warn("❌ Mauvais format : friends n'est pas un tableau !");
-		return;
-	}
+	if (!Array.isArray(friends)) return console.warn("❌ Mauvais format : friends n'est pas un tableau !");
 
-	if (friends.length === 0) {
-		console.warn("ℹ️ Aucun ami trouvé.");
-	}
+	if (friends.length === 0) console.warn("ℹ️ Aucun ami trouvé.");
 
 	friends.forEach(friend => {
-		console.log("Ajout de l'ami :", friend);
 		const li = document.createElement("li");
 		li.textContent = friend.name;
 		li.style.cursor = "pointer";
 
 		li.addEventListener("click", () => {
-			console.log(`👆 Click détecté sur ${friend.name}`);
-			if (!chatWith || !chatSection || !chatMessages) {
-				console.warn("❌ Élément manquant dans le DOM");
-				return;
-			}
+			if (!chatWith || !chatSection || !chatMessages) return console.warn("❌ Élément manquant dans le DOM");
+
 			chatWith.textContent = `Chat avec ${friend.name}`;
 			chatSection.style.display = "block";
 			document.getElementById("defaultChatMessage")?.classList.add("hidden");
 			chatMessages.innerHTML = ""; // vide l'ancien chat
 		});
-		// Écoute clavier pour envoyer un message
+		// Écoute clavier pour envoyer message
 
 		friendsList.appendChild(li);
 	});

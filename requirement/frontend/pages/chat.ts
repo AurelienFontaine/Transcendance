@@ -1,7 +1,7 @@
 export function renderChat() {
 	const token = localStorage.getItem("token");
 	if (!token) {
-		console.info("❌ Accès refusé : utilisateur non connecté.");
+		console.info("Utilisateur non connecté.");
 		return `<p>Accès refusé. Veuillez vous connecter.</p>`;
 	}
 
