@@ -62,7 +62,7 @@ function registerGoogleAuthRoutes(fastify, hashPassword) {
 
 		try {
 			//requete http post vers l'endpoint(adresse url vers laquelle on envoie la requete, ici point d'entree de l'api google) de google
-			console.log("Step 1: code recu: ", code);
+			// console.log("Step 1: code recu: ", code);
 			const tokenResponse = await axios.post('https://oauth2.googleapis.com/token', {
 				code, //code envoye
 				client_id: GOOGLE_CLIENT_ID, //identifiant dans .env
@@ -74,7 +74,7 @@ function registerGoogleAuthRoutes(fastify, hashPassword) {
 
 			//on extrait l'access_token des donnees renvoyees par google, on utilise pas le refresh token parce qu'il ne sera pas renvoye a chaque connexion.
 			//le refresh token sert a obtenir un nouvel access token sans repasser par l'etape d'autorisation
-			console.log("Step 2: tokenResponse: ", tokenResponse.data);
+			// console.log("Step 2: tokenResponse: ", tokenResponse.data);
 			const { access_token } = tokenResponse.data; // methode de destructuring
 
 			//envoi une requete get a un autre endpoint contenant les infos du user
@@ -83,29 +83,13 @@ function registerGoogleAuthRoutes(fastify, hashPassword) {
 					Authorization: `Bearer ${access_token}` //montre le jeton d'acces a google pour prouver qu'on a le droit d'acceder
 				}
 			});
-			console.log("Step 3: userInfoResponse: ", userInfoResponse.data);
+			// console.log("Step 3: userInfoResponse: ", userInfoResponse.data);
 
 			//destructure la reponse de google, elle contient les infos demandees, le nom de l'user, son adresse, son identifiant unique (Google Subject ID)
 			//sub=subject identifier = identifiant unique donnee par google au user dans l'app/site (unique, stable, lie a l'app/site, non modifiable, ne depend pas du nom ou de l'adresse)
 			//souvent utilise comme cle de ref
 			const { name : googleName, email, sub } = userInfoResponse.data; //destructuring en mettant le retour de name dans un const googleName
-			console.log("Step 4: info user: ", { googleName, email, sub });
-
-			//interroge la base SQLite, verifie si l'user existe deja, si user = undefined, il faut le creer
-			// let firstTime = false;
-			// if (!user) { //si mail non existant dans db, on l'ajoute
-			// 	//utilisation du sub pour creer un mdp hashed, vu que l'user n'en a pas choisi un
-			// 	const dummyPassword = await hashPassword(sub);
-			
-			// 	const checkUserName = db.prepare('SELECT * FROM users WHERE name = ?').get(name);
-			// 	if (!checkUserName)
-			// 	{//requete SQL pour injecter le nouv user avec les infos de google dans la tab users
-			// 		const insert = db.prepare('INSERT INTO users (name, email, password_hash) VALUES (?, ?, ?)').run(name, email, dummyPassword);
-			// 	}else{const insert = db.prepare('INSERT INTO users (name, email, password_hash) VALUES (?, ?, ?)').run(email, email, dummyPassword);}
-			// 	//initialisation variable javascript user avec les infos du nouv utilisateur (but?: recup l'id et le reutiliser pour signe un token JWT)
-			// 	user = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
-			// 	firstTime = true;
-			// }
+			// console.log("Step 4: info user: ", { googleName, email, sub });
 			
 			// Gerer le cas du name deja existant:
 			let username = googleName;
@@ -121,30 +105,29 @@ function registerGoogleAuthRoutes(fastify, hashPassword) {
 
 				// Gerer le cas de l'username deja existant:
 				username = generateUniqueUsername(googleName);
-				// let username_tmp = username;
-				// let i = 1;
-				// while (db.prepare('SELECT id FROM users WHERE username = ?').get(username_tmp)) {
-				// 	username_tmp = `${username}${i}`;
-				// 	i++;
-				// }
-				// username = username_tmp;
 				// Creer l'user :
 				try {
 					const insert = db.prepare('INSERT INTO users (name, email, username, password_hash) VALUES (?, ?, ?, ?)').run(name, email, username, randomPassword);
 					user = db.prepare('SELECT * FROM users WHERE id = ?').get(insert.lastInsertRowid);				
 				} catch (err) {
-					console.log("Print verif err on insert");
 					console.error(err);
 					throw (err);
 				}
 			}
-			// const token = fastify.jwt.sign({ id: user.id, username: user.username, mustChangePassword: true}, process.env.JWT_KEY!, { expiresIn: "1h" });
-			return {
-				token,
-				name: user.name,
+			const token = fastify.jwt.sign({
+				id: user.id,
 				username: user.username,
 				mustChangePassword: firstTime
-			};
+			}, process.env.JWT_KEY, { expiresIn: "1h" });
+
+			const redirectUrl = `http://localhost:8080/profile?token=${token}&name=${encodeURIComponent(email)}&firstTime=${firstTime}`;
+			return reply.redirect(redirectUrl);
+			// return {
+			// 	token,
+			// 	name: user.name,
+			// 	username: user.username,
+			// 	mustChangePassword: firstTime
+			// };
 			
 
 			//creation/signature d'un JWT, contient l'id et le name du user, permet de l'identifier plus tard
@@ -158,7 +141,6 @@ function registerGoogleAuthRoutes(fastify, hashPassword) {
 		
 		} catch (err) { //interception d'erreurs
 			console.error(err.response?.data || err); //recupere une propriete pour l'erreur si il y en a, ou met un err brute dans le cas contraire
-			// retourne une erreur en cas de probleme lors de l'authentification
 			return reply.status(500).send({ error: 'Erreur durant le login Google' });
 		}
 	});

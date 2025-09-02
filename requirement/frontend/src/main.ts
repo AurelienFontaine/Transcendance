@@ -34,12 +34,22 @@ import * as userM from "./user_management";
 //ftc principale de rendu de la SPA
 export function render() {
   const path = window.location.pathname;
-  // Lire les paramètres d'URL (token + name)
+  // Lire les paramètres d'URL (token + username)
 	const urlParams = new URLSearchParams(window.location.search);
 	const error = urlParams.get('error');
 	const token = urlParams.get('token');
-	const name = urlParams.get('name');
+	const username = urlParams.get('username');
 	const firstTime = urlParams.get('firstTime'); //premiere connection avec OAuth
+
+  if (token) { //Si user connecte -> mettre a jour la page
+		localStorage.setItem('token', token);
+
+    if (username)
+        localStorage.setItem('username', username);
+		// Nettoyer l'URL pour ne pas laisser les paramètres visibles
+		window.history.replaceState({}, '', window.location.pathname);
+		auth.updateUIForLoggedInUser();
+	}
 
     //verification du refus de connection de l'user
 	if (error === 'access_denied') {
@@ -55,19 +65,6 @@ export function render() {
 	}
 
 	//gerer l'initialisation du mdp pas terminer, a terminer et commenter
-	if (path === '/choose-password') {
-		const newPassword = document.getElementById("googleChangePasswordForm") as HTMLFormElement;
-    if (newPassword)
-      newPassword.addEventListener('submit', userM.googleChangePassword);
-	}
-
-	if (token && name) { //Si user connecte -> mettre a jour la page
-		localStorage.setItem('token', token);
-		localStorage.setItem('username', name);
-		// Nettoyer l'URL pour ne pas laisser les paramètres visibles
-		window.history.replaceState({}, '', window.location.pathname);
-		auth.updateUIForLoggedInUser();
-	}
 
 	//affiche la page correspondant a l'url ou 404
   const page = routes[path] || (() => '<h1>404 Not Found</h1>');
@@ -75,34 +72,44 @@ export function render() {
 
   // On attend que le DOM ait fini de peindre le contenu HTML injecté
   requestAnimationFrame(() => { //attends le prochain refresh d'ecran
-	if (path === '/play') {
-  // 1) Wire the tournament UI (register players, start tournament, scoring)
-  //    This function should be idempotent (won’t double-attach on re-render).
-    setupPlayPage();
+    
+    if (path === '/choose-password') {
+		  const newPassword = document.getElementById("changePasswordForm") as HTMLFormElement;
+      if (newPassword)
+        newPassword.addEventListener('submit', userM.changePassword);
+	  }
+  
+    if (path === '/play') {
+    // 1) Wire the tournament UI (register players, start tournament, scoring)
+    //    This function should be idempotent (won’t double-attach on re-render).
+      setupPlayPage();
 
-    // 2) Wire your game mode buttons (local / online) like before
-    const localBtn  = document.getElementById('localBtn');
-    const onlineBtn = document.getElementById('onlineBtn');
+      // 2) Wire your game mode buttons (local / online) like before
+      const localBtn  = document.getElementById('localBtn');
+      const onlineBtn = document.getElementById('onlineBtn');
 
-    localBtn?.addEventListener('click', () => {
-      history.pushState({ page: 'game-local' }, '', '#game-local');
-      // wait one paint so the DOM is present, then render the game
-      requestAnimationFrame(() => {
-        Game.__forceRender('game-local');
+      localBtn?.addEventListener('click', () => {
+        history.pushState({ page: 'game-local' }, '', '#game-local');
+        // wait one paint so the DOM is present, then render the game
+        requestAnimationFrame(() => {
+          Game.__forceRender('game-local');
+        });
       });
-    });
 
-    onlineBtn?.addEventListener('click', () => {
-      history.pushState({ page: 'game-online' }, '', '#game-online');
-      requestAnimationFrame(() => {
-        Game.__forceRender('game-online');
+      onlineBtn?.addEventListener('click', () => {
+        history.pushState({ page: 'game-online' }, '', '#game-online');
+        requestAnimationFrame(() => {
+          Game.__forceRender('game-online');
+        });
       });
-    });
-  }
+    }
 
     if (path === '/profile') {
 		  const hasToken = ! !localStorage.getItem('token');
 
+      const currentUsernameDOM = document.getElementById('currentUsername');
+      if (currentUsernameDOM)
+        currentUsernameDOM.textContent = username;
 		  const googleBtn = document.getElementById('googleLoginButton');
 		  if (googleBtn)
 			  googleBtn.style.display = hasToken ? 'none' : 'block';
@@ -119,9 +126,9 @@ export function render() {
       if (changeUsernameForm)
         changeUsernameForm.addEventListener('submit', userM.changeUsername);
 
-      const changePasswordForm = document.getElementById('changePasswordForm') as HTMLFormElement;
-      if (changePasswordForm)
-        changePasswordForm.addEventListener('submit', userM.changePassword);
+      const changePasswordButton = document.getElementById("changePasswordBtn");
+      if (changePasswordButton)
+        changePasswordButton.addEventListener('click', () => { navigate('/choose-password'); });
 
       const logoutBtn = document.getElementById('logoutButton');
       if (logoutBtn) 

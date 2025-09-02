@@ -88,12 +88,14 @@ export function updateUIForLoggedInUser() {
 	const userInfo = document.getElementById('userInfo');
 	const currentUsername = document.getElementById('currentUsername');
 	const changeForm = document.getElementById('changeUsernameForm');
-    const passwordForm = document.getElementById('changePasswordForm');
+  // const passwordForm = document.getElementById('changePasswordForm');
+  const passwordChangeBtn = document.getElementById('changePasswordBtn');
 
-	if (username && userInfo && currentUsername && changeForm && passwordForm) {
+	if (username && userInfo && currentUsername && changeForm && passwordChangeBtn) {
 		userInfo.style.display = 'block';
 		changeForm.style.display = 'block';
-        passwordForm.style.display = 'block';
+    // passwordForm.style.display = 'block';
+    passwordChangeBtn.style.display = 'block';
 		currentUsername.textContent = username;
 		// Handle le changement de username
 		changeForm.addEventListener('submit', (e) => {
@@ -107,8 +109,8 @@ export function updateUIForLoggedInUser() {
 export async function checkIfLoggedIn() {
   await tokenCheck(); //verif la validite du token en back
   const token = localStorage.getItem('token');
-  const name = localStorage.getItem('username');
-  if (token && name)
+  const username = localStorage.getItem('username');
+  if (token && username)
     updateUIForLoggedInUser();
 }
 
@@ -121,9 +123,13 @@ export function updateUIForLoggedOutUser() {
   if (changeForm)
 		changeForm.style.display = 'none';
 
-  const passwordForm = document.getElementById('changePasswordForm');
-  if (passwordForm)
-		passwordForm.style.display = 'none';
+  // const passwordForm = document.getElementById('changePasswordForm');
+  // if (passwordForm)
+	// 	passwordForm.style.display = 'none';
+
+  const passwordChangeBtn = document.getElementById('changePasswordBtn');
+  if (passwordChangeBtn)
+    passwordChangeBtn.style.display = 'none';
 
   const logoutBtn = document.getElementById('logoutButton');
   if (logoutBtn)

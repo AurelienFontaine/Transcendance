@@ -14,13 +14,9 @@ export function renderProfile() {
         <button type="submit" class="w-full bg-yellow-600 hover:bg-yellow-700 text-white p-2 rounded">Changer de pseudo</button>
       </form>
 
-            <!-- Formulaire changement mdp -->
-      <form id="changePasswordForm" style="display:none;" class="space-y-2 mt-4">
-        <input id="oldPassword" type="password" placeholder="Ancien mot de passe" class="w-full p-2 rounded bg-gray-700 text-white" required />
-        <input id="newPassword" type="password" placeholder="Nouveau mot de passe" class="w-full p-2 rounded bg-gray-700 text-white" required />
-        <button type="submit" class="w-full bg-yellow-600 hover:bg-yellow-700 text-white p-2 rounded">Changer de mdp</button>
-      </form>
-
+      <!-- Formulaire changement mdp -->
+      <button id="changePasswordBtn" style="display:none;" class="space-y-2 mt-4">Changer mon mot de passe</button>
+    
       <!-- Déconnexion -->
       <button id="logoutButton" style="display:none;" class="bg-red-600 hover:bg-red-700 text-white p-2 rounded mt-4">Déconnexion</button>
 

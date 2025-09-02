@@ -1,7 +1,7 @@
 export function renderChoosePassword() {
 	return `
 		<h1>Définir un mot de passe</h1>
-		<form id="googleChangePasswordForm"><br>
+		<form id="changePasswordForm"><br>
 			<label for="newPassword">Mot de passe :</label>
 			<input type="password" id="newPassword" name="newPassword" required /><br><br>
 
