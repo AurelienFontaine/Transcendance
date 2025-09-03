@@ -1,6 +1,6 @@
 //fichier concernant l'authentification OAuth2 avec google
 const axios = require('axios');
-const db = require('./database.js');
+const db = require('../../database.js');
 const bcrypt = require('bcrypt'); //hashage mdp
 const crypto = require('crypto'); //generation caracteres aleatoire
 

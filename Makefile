@@ -13,7 +13,7 @@ stop:
 	docker compose -f $(COMPOSE_PATH) stop
 
 clean:
-	docker compose -f $(COMPOSE_PATH) down --rmi all --volumes
+	docker compose -f $(COMPOSE_PATH) down --rmi all --volumes --remove-orphans
 
 fclean: clean
 
@@ -25,6 +25,30 @@ destroy: clean
 	docker image prune -a -f
 	docker volume prune -f
 	docker system prune -a -f
-	rm -rf requirement/backend/data/data.db
+	rm -f requirement/backend/data/data.db
+	docker system df
 
-.PHONY: all debug start stop clean fclean re destroy
+log:
+	docker compose -f $(COMPOSE_PATH) logs chat backend frontend
+
+ls:
+	@echo "📦 Containers :"
+	@docker ps -a
+	@echo ""
+	@echo "📸 Images :"
+	@docker images
+	@echo ""
+	@echo "🧱 Volumes :"
+	@docker volume ls
+	@echo ""
+	@echo "🔗 Networks :"
+	@docker network ls
+
+tab:
+	@docker exec -it backend_container sh -c "sqlite3 data/data.db '.tables'"
+	@docker exec -it backend_container sh -c "sqlite3 data/data.db '.mode box' '.headers on' 'SELECT * FROM users;'"
+	@docker exec -it backend_container sh -c "sqlite3 data/data.db '.mode box' '.headers on' 'SELECT * FROM friends;'"
+	@docker exec -it backend_container sh -c "sqlite3 data/data.db '.mode box' '.headers on' 'SELECT * FROM games;'"
+	@docker exec -it backend_container sh -c "sqlite3 data/data.db '.mode box' '.headers on' 'SELECT * FROM server;'"
+
+.PHONY: all debug start stop clean fclean re destroy log ls tab

@@ -1,0 +1,22 @@
+{
+	"name": "chat-service",
+	"version": "0.1.0",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"dev": "ts-node --transpile-only src/index.ts",
+		"build": "tsc",
+		"start": "node dist/index.js"
+	},
+	"dependencies": {
+		"fastify": "^4.15.0",
+		"ws": "^8.13.0",
+		"jsonwebtoken": "^9.0.2"
+	},
+	"devDependencies": {
+		"@types/node": "^22.0.0",
+		"ts-node": "^10.9.2",
+		"typescript": "^5.8.3",
+		"@types/jsonwebtoken": "^9.0.6"
+	}
+}

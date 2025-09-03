@@ -6,7 +6,6 @@ import { renderHome } from '../pages/home';
 import { renderProfile, setupProfilePage } from '../pages/profile';
 import { renderPlay, setupPlayPage } from '../pages/play';
 import { renderChoosePassword } from '../pages/choose-password';
-import { setupChoosePasswordHandler } from '../handlers/user-handler';
 
 import { navigate } from "./utils";
 
@@ -16,18 +15,19 @@ import * as auth from "./authentification";
 
 import * as userM from "./user_management";
 
+import { renderChat } from '../pages/chat';
 
-// const backendUrl = "http://localhost:3000";
-
+import { chatHandler } from '../handlers/chat-handler';
 
 // Record<K, V> utility typescript type with K as key type and V as value type
 // () => string : function without parameters returning a string
 // "routes" is an object with a path as key and each value is a function that returns a string (here HTML code)
 const routes: Record<string, () => string> = {
-  '/': renderHome,
-  '/profile': renderProfile,
-  '/play': renderPlay,
-  '/choose-password': renderChoosePassword,
+	'/': renderHome,
+	'/profile': renderProfile,
+	'/play': renderPlay,
+	'/choose-password': renderChoosePassword,
+	'/chat': renderChat,
 };// objet, associe chaque chemin url a une fonction qui genere du html
 
 ///////// RENDER DE LA PAGE //////////////////////////////////////////
@@ -52,7 +52,7 @@ export function render() {
 		auth.updateUIForLoggedInUser();
 	}
 
-    //verification du refus de connection de l'user
+	//verification du refus de connection de l'user
 	if (error === 'access_denied') {
 		alert("Connexion via Google refusée.");
 		//nettoie l'URL pour ne pas garder ?error
@@ -60,25 +60,14 @@ export function render() {
   }
 
 	if (firstTime === 'true'){ //demande d'initialisation de mdp
-		alert("Bienvenue ! Veuillez choisir un mot de passe pour votre premiere connexion");
+		alert("Bienvenue dans notre projet Transcendance ! Veuillez choisir un mot de passe pour finaliser votre inscription! ");
 		navigate('/choose-password');
 		return;
 	}
 
-	//gerer l'initialisation du mdp pas terminer, a terminer et commenter
-
-	if (token) {
-	  localStorage.setItem('token', token);
-    if (username)
-	    localStorage.setItem('username', username);
-	  auth.updateUIForLoggedInUser();
-	// Nettoyer l'URL pour ne pas laisser les paramètres visibles
-	  window.history.replaceState({}, '', window.location.pathname);
-	}
-
 	//affiche la page correspondant a l'url ou 404
-  const page = routes[path] || (() => '<h1>404 Not Found</h1>');
-  document.getElementById('app')!.innerHTML = page();
+	const page = routes[path] || (() => '<h1>404 Not Found</h1>');
+	document.getElementById('app')!.innerHTML = page();
 
   // On attend que le DOM ait fini de peindre le contenu HTML injecté
   requestAnimationFrame(() => { //attends le prochain refresh d'ecran
@@ -130,17 +119,29 @@ export function render() {
         logoutBtn.addEventListener('click', auth.logoutUser);
       setupProfilePage();
     }
+
+    if (path == '/chat'){
+			const token = localStorage.getItem("token");
+
+			if (!token) {
+				alert("Accès refusé. Veuillez vous connecter.");
+				navigate("/profile");
+				return;
+			}
+			chatHandler();
+		}
+
     auth.checkIfLoggedIn(); //verifie la session a chaque affichage
   });
 }
 
 // Intercept internal navigation pour spa
 document.addEventListener('click', (e) => {
-  const target = e.target as HTMLElement; // ensure it is a DOM element
-  if (target.matches('[data-link]')) {
-    e.preventDefault(); // avoid browser default behavior which would reload the page
-    navigate(target.getAttribute('href')!);
-  }
+	const target = e.target as HTMLElement; // ensure it is a DOM element
+	if (target.matches('[data-link]')) {
+		e.preventDefault(); // avoid browser default behavior which would reload the page
+		navigate(target.getAttribute('href')!);
+	}
 });
 
 // Handle browser back/forward

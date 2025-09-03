@@ -2,7 +2,8 @@ const Fastify = require('fastify');
 const cors = require ('@fastify/cors');
 const bcrypt = require('bcrypt'); //hashage de mdp robuste et bcp utilise + utilise un SALT automatiquement
 const db = require('./database.js');
-const registerGoogleAuthRoutes = require('./google-auth');
+const friendsBackend = require('./routes/user-managment/friends-backend');
+const registerGoogleAuthRoutes = require('./routes/auth/google-auth.js');
 const jwt = require('@fastify/jwt');
 const { verify } = require('crypto');
 const { read } = require('fs');
@@ -10,38 +11,40 @@ const { read } = require('fs');
 
 // backend/index.js
 const fastify = Fastify({ logger: true})
+fastify.decorate('db', db);
+
 
 db.exec('PRAGMA foreign_keys = ON');
 async function start(){
-    
-    
-    await fastify.register(require('@fastify/jwt'), { //ajouter le JSON WEB TOKEN
-        secret: process.env.JWT_KEY || 'secureSafetyKey'
-    });
+	
+	//enregistrement du plugin
+	await fastify.register(require('@fastify/jwt'), { //ajouter le JSON WEB TOKEN
+		secret: process.env.JWT_KEY || 'secureSafetyKey'
+	});
  
-    fastify.register(cors, {
-        origin: '*', //dev only (faut pas faire ca)
-        // On voudrait mettre origin: ['https://site.com'] pour autoriser les requetes venant uniquement du site
-    });
-    
+	await fastify.register(cors, {
+		origin: '*', //dev only (faut pas faire ca)
+		// On voudrait mettre origin: ['https://site.com'] pour autoriser les requetes venant uniquement du site
+	});
+	
 
-    // FONCTION GET de fastify (Comportement different en fonction du path)
-    fastify.get('/', async (request, reply) => {
-        return {message: 'Hello World from Fastify!'}
-    })
-    
-    fastify.get('/ping', async (request, reply) => {
-        return {message: 'pong'}
-    })
+	// FONCTION GET de fastify (Comportement different en fonction du path)
+	fastify.get('/', async (request, reply) => {
+		return {message: 'Hello World from Fastify!'}
+	})
+	
+	fastify.get('/ping', async (request, reply) => {
+		return {message: 'pong'}
+	})
 
-    // Hashage PASSWORD
+	// Hashage PASSWORD
 
-    const hashPassword = async (password) => {
-        const saltRounds = 10;
-        const hashed = await bcrypt.hash(password, saltRounds);
-        return hashed;
-    };
-    
+	const hashPassword = async (password) => {
+		const saltRounds = 10;
+		const hashed = await bcrypt.hash(password, saltRounds);
+		return hashed;
+	};
+	
 	//enregistre les routes OAuth externes (google), a mettre apres l'initialisation de hashPassword et av route /register, /login
 	registerGoogleAuthRoutes(fastify, hashPassword);
 
@@ -103,10 +106,10 @@ async function start(){
             const stmt = db.prepare ('INSERT INTO users (name, email, password_hash, username) VALUES (?, ?, ?, ?)');
             const info = stmt.run(name, email, password_hash, username);
 
-            const token = fastify.jwt.sign({
-                id: info.lastInsertRowid,
-                name: name,
-            });
+			const token = fastify.jwt.sign({
+				id: info.lastInsertRowid,
+				name: name,
+			});
 
             return { success: true, id: info.lastInsertRowid, token, username};
         } catch (err) {
@@ -114,11 +117,11 @@ async function start(){
         }
     });
 
-    // User login
+	// User login
 
-    const checkPassword = async (password, hashPassword) => {
-        return await bcrypt.compare(password, hashPassword);
-    };
+	const checkPassword = async (password, hashPassword) => {
+		return await bcrypt.compare(password, hashPassword);
+	};
 
     fastify.post('/login', {
         schema: {
@@ -157,14 +160,14 @@ async function start(){
     }, async (request, reply) => { //toujours dans le /login
         const { name, password } = request.body;
 
-        const user = db.prepare('SELECT * FROM users WHERE name = ?').get(name);
-        if (!user) {
-            return reply.status(401).send({ error: 'Utilisateur non trouve' });
-        }
-        const isValid = await checkPassword(password, user.password_hash);
-        if (!isValid) {
-            return reply.status(401).send({ error: 'Mot de passe incorrect' });
-        }
+		const user = db.prepare('SELECT * FROM users WHERE name = ?').get(name);
+		if (!user) {
+			return reply.status(401).send({ error: 'Utilisateur non trouve' });
+		}
+		const isValid = await checkPassword(password, user.password_hash);
+		if (!isValid) {
+			return reply.status(401).send({ error: 'Mot de passe incorrect' });
+		}
 
         const token = fastify.jwt.sign({ id: user.id, name: user.name });
         return { success: true, message: 'Connexion reussie', token , username: user.username}; //200
@@ -380,17 +383,21 @@ fastify.get('/users/:name/stats', async (request, reply) => {
     return { matches };
     });
 
-    // Verifier le token JWT user et return un 401 si token invalide
-    fastify.get('/me', {
-        preHandler: [fastify.authenticate]
-    }, async (request, reply) => {
-        const userId = request.user.id;
-        const user = db.prepare('SELECT id, name FROM users WHERE id = ?').get(userId);
-        if (!user) {
-            return reply.status(401).send({error: 'Utilisateur supprime ou inexistant.'});
-        }
-        return { user: request.user };
-    });
+	// Verifier le token JWT user et return un 401 si token invalide
+	fastify.get('/me', {
+		preHandler: [fastify.authenticate]
+	}, async (request, reply) => {
+		const userId = request.user.id;
+
+		const user = db.prepare('SELECT id, name FROM users WHERE id = ?').get(userId);
+
+		if (!user) {
+			return reply.status(401).send({error: 'Utilisateur supprime ou inexistant.'});
+		}
+		return { user: request.user };
+	});
+
+	friendsBackend(fastify);
 
 
     fastify.put('/me/username', { //gerer le changement d'username

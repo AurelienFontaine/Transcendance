@@ -11,13 +11,14 @@
  <link href="/src/styles.css" rel="stylesheet" />
 </head>
 <body class="bg-gray-900 text-white min-h-screen">
-  <nav class="justify-between items-center p-4 bg-gray-800 flex gap-4">
-    <a href="/" data-link class="hover:underline">Home</a>
-    <a href="/profile" data-link class="hover:underline">Profile</a>
+	<nav class="w-full fixed top-0 left-0 z-50 bg-gray-800 px-6 py-4 flex justify-start items-center gap-6 shadow-md">
+		<a href="/" data-link class="hover:underline">Home</a>
+		<a href="/profile" data-link class="hover:underline">Profile</a>
     <a href="/play" data-link class="hover:underline">Game</a>
-  </nav>
-  <main id="app" class="p-6">
+		<a href="/chat" data-link class="hover:underline">Chat</a>
+	 </nav>
+	<main id="app" class="pt-24 px-6">
     <!-- Views get rendered here -->
-  </main>
+	</main>
 </body>
 </html>

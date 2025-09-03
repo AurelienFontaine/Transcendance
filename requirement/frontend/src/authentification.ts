@@ -84,6 +84,10 @@ export function updateUIForLoggedInUser() {
   if (googleBtn)
     googleBtn.style.display = 'none';
 
+  const chatLink = document.getElementById('chatLink');
+	if (chatLink)
+    chatLink.style.display = 'inline-block';
+
 	const username = localStorage.getItem('username');
 	const userInfo = document.getElementById('userInfo');
 	const currentUsername = document.getElementById('currentUsername');
@@ -146,6 +150,10 @@ export function updateUIForLoggedOutUser() {
   const googleBtn = document.getElementById('googleLoginButton');
   if (googleBtn)
     googleBtn.style.display = 'block';
+
+  const chatLink = document.getElementById('chatLink');
+	if (chatLink)
+    chatLink.style.display = 'none';
 }
 
 export function logoutUser() {
