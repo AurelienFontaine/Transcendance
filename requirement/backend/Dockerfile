@@ -12,7 +12,7 @@ RUN npm install
 
 COPY . .
 
-RUN npm install fastify @fastify/cors better-sqlite3 @fastify/jwt
+RUN npm install fastify @fastify/cors better-sqlite3 @fastify/jwt @fastify/multipart@7
 
 RUN npm install bcrypt
 

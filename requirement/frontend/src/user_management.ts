@@ -95,3 +95,14 @@ export async function changePassword(event: Event) {
     alert ('Error: server');
   }
 }
+
+// Gestion des images
+
+export async function setDefaultAvatar(filename: string) {
+  await fetch("http://localhost:3000/set-default-avatar", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: "Bearer" + localStorage.getItem("token") },
+    body: JSON.stringify({ avatar: filename }),
+  });
+  document.getElementById("currentAvatar")?.setAttribute("src", `${backendUrl}/images` + filename);
+}
