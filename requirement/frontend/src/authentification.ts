@@ -67,12 +67,12 @@ export async function loginUser(event: Event) {
 }
 
 
-export function updateUIForLoggedInUser() {
+export function updateUIForLoggedInUser() {  
   const loginForm = document.getElementById('loginForm');
-  const registerForm = document.getElementById('registerForm');
-
   if (loginForm)
     loginForm.style.display = 'none';
+
+  const registerForm = document.getElementById('registerForm');
   if (registerForm)
     registerForm.style.display = 'none';
 
@@ -92,7 +92,6 @@ export function updateUIForLoggedInUser() {
 	const userInfo = document.getElementById('userInfo');
 	const currentUsername = document.getElementById('currentUsername');
 	const changeForm = document.getElementById('changeUsernameForm');
-  // const passwordForm = document.getElementById('changePasswordForm');
   const passwordChangeBtn = document.getElementById('changePasswordBtn');
 
 	if (username && userInfo && currentUsername && changeForm && passwordChangeBtn) {
@@ -127,10 +126,6 @@ export function updateUIForLoggedOutUser() {
   if (changeForm)
 		changeForm.style.display = 'none';
 
-  // const passwordForm = document.getElementById('changePasswordForm');
-  // if (passwordForm)
-	// 	passwordForm.style.display = 'none';
-
   const passwordChangeBtn = document.getElementById('changePasswordBtn');
   if (passwordChangeBtn)
     passwordChangeBtn.style.display = 'none';
@@ -158,7 +153,9 @@ export function updateUIForLoggedOutUser() {
 
 export function logoutUser() {
   localStorage.removeItem('token');
+  localStorage.removeItem('username');
   updateUIForLoggedOutUser();
+  navigate('/profile'); //refresh de la page
 }
 
 export async function tokenCheck() {
@@ -171,11 +168,11 @@ export async function tokenCheck() {
           'Authorization': `Bearer ${token}`,
         },
       });
-      if (!response.ok) throw new Error('Token invalide');
+      if (!response.ok)
+        throw new Error('Token invalide');
     } catch (err) {
       console.warn('Token expire ou invalide.');
-      localStorage.removeItem('token');
-      updateUIForLoggedOutUser();
+      logoutUser();
     }
   }
 }

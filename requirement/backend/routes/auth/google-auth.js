@@ -97,6 +97,9 @@ function registerGoogleAuthRoutes(fastify, hashPassword) {
 			let user = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
 			if (!user)
 				firstTime = true;
+			else {
+				username = user.username;
+			}
 
 			if (firstTime)
 			{
@@ -118,21 +121,9 @@ function registerGoogleAuthRoutes(fastify, hashPassword) {
 				id: user.id,
 				username: user.username,
 				mustChangePassword: firstTime
-			}, process.env.JWT_KEY, { expiresIn: "1h" });
-
-			const redirectUrl = `http://localhost:8080/profile?token=${token}&name=${encodeURIComponent(email)}&firstTime=${firstTime}`;
+			});
+			const redirectUrl = `http://localhost:8080/profile?token=${token}&username=${encodeURIComponent(username)}&firstTime=${firstTime}`;
 			return reply.redirect(redirectUrl);
-			// return {
-			// 	token,
-			// 	name: user.name,
-			// 	username: user.username,
-			// 	mustChangePassword: firstTime
-			// };
-			
-
-			//creation/signature d'un JWT, contient l'id et le name du user, permet de l'identifier plus tard
-			//prouve que l'user est bien authentifie, necessaire a chaque connexion
-			// const token = fastify.jwt.sign({ id: user.id, name: user.name, firstTime });
 
 			//redirection vers le front port 8080, ajout du token et du nom pour que le front end le stock dans local storage
 			//localStorage (=wone de stockage locale dans le nav, appartient au site, persistante si on ferme l'onglet ou rafraichis, on y accede en javascript)
@@ -149,10 +140,3 @@ function registerGoogleAuthRoutes(fastify, hashPassword) {
 //exporte la fonction registerGoogleAuthRoutes, pour qu'elle soit utilisable dans un autre fichier
 //(ce dernier doit contenir : const registerGoogleAuthRoutes = require('./authGoogle');)
 module.exports = registerGoogleAuthRoutes;
-
-
-/*note:
-- securiser le stockage des token ailleurs que dans local storage
-- ajouter un champ mdp pour que l'user renseigne lui meme son mdp
-(optionnel) - voir pour le faire avec 42Auth et pas google
-*/
