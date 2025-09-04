@@ -1,6 +1,6 @@
 // requirement/frontend/pages/play.ts
 import { Tournament } from "../handlers/game/tournament";
-import { __forceRender as forceGameRender, startLocalMatch, showBoardForTournament} from "../handlers/game/game-front";
+import { __forceRender as forceGameRender, startLocalMatch, showBoardForTournament } from "../handlers/game/game-front";
 
 let tournament: Tournament | null = null;
 
@@ -48,7 +48,6 @@ export function renderPlay() {
 
       <!-- === Section 4 : zone du jeu (canvas + boutons) === -->
       <section class="flex flex-col gap-4 items-center w-full max-w-3xl">
-        <!-- Stub required by game-front.ts (renderPage toggles #menu / #gamecontainer) -->
         <div id="menu" style="display:none"></div>
         <div id="gamecontainer" style="display:none; width: 1000px; height: 1000px;">
           <div id="app">
@@ -82,9 +81,7 @@ export function renderPlay() {
   `;
 }
 
-/** Idempotent: appelé par main.ts après render() quand path === '/play' */
 export function setupPlayPage() {
-  // --- helpers d’affichage
   const $ = (id: string) => document.getElementById(id)!;
   const show = (el: HTMLElement) => el.classList.remove("hidden");
   const hide = (el: HTMLElement) => el.classList.add("hidden");
@@ -93,68 +90,26 @@ export function setupPlayPage() {
   const localSubmenu    = $("localSubmenu");
   const tournamentPanel = $("tournamentPanel");
 
-  // État tournoi
   const players: string[] = [];
   let currentMatch: { p1: string; p2: string } | null = null;
 
+  // 🔑 Infos du joueur connecté
   const token = localStorage.getItem('token');
-  const rawName = localStorage.getItem('username');
-  const loggedName = token && rawName ? rawName.trim() : null; // <— ignore si pas de token
+  const loggedName = localStorage.getItem('name');        // identifiant fixe
+  const loggedUsername = localStorage.getItem('username'); // affichage préféré
+  const displaySelf = loggedUsername || loggedName;
 
-  if (loggedName && !players.includes(loggedName)) {
-    players.push(loggedName);
+  if (token && displaySelf && !players.includes(displaySelf)) {
+    players.push(displaySelf);
   }
 
-  // ========== Navigation (Local / Online / Sous-menu) ==========
-  $("localBtn").onclick = () => {
-    hide(modeChoice);
-    show(localSubmenu);
-    hide(tournamentPanel);
-  };
-
-  $("backToModeBtn").onclick = () => {
-    show(modeChoice);
-    hide(localSubmenu);
-    hide(tournamentPanel);
-  };
-
-  $("onlineBtn").onclick = () => {
-    // on laisse le routeur interne du jeu gérer le mode en ligne
-    forceGameRender("game-online");
-  };
-
-  $("quickPlayBtn").onclick = () => {
-    // cache les menus, lance le jeu local immédiatement
-    hide(modeChoice);
-    show(localSubmenu); // on garde le sous-menu visible si tu veux pouvoir revenir facilement
-    hide(tournamentPanel);
-    forceGameRender("game-local"); // crée/affiche un seul canvas et démarre le local
-  };
-
-  $("tournamentBtn").onclick = () => {
-    hide(modeChoice);
-    show(localSubmenu);
-    show(tournamentPanel);
-  };
-
-  $("closeTournamentBtn").onclick = () => {
-    // ne casse pas le tournoi en cours, ferme juste le panneau
-    hide(tournamentPanel);
-  };
-
-  // ========== Logique tournoi ==========
-  const aliasInput   = $("aliasInput") as HTMLInputElement;
-  const playerList   = $("playerList");
-  const matchInfo    = $("matchInfo");
-  const standingsEl  = $("standings");
-
- const refreshPlayers = () => {
-    const ln = loggedName; // capture
-    const others = ln ? players.filter(p => p !== ln) : [...players];
+  // Rafraîchit l’affichage des joueurs
+  const refreshPlayers = () => {
+    const others = displaySelf ? players.filter(p => p !== displaySelf) : [...players];
 
     let html = '';
-    if (ln) {
-      html += `<div>Inscrit (connecté) : <strong>${ln}</strong></div>`;
+    if (displaySelf) {
+      html += `<div>Inscrit (connecté) : <strong>${displaySelf}</strong></div>`;
     }
     if (others.length) {
       html += `<div class="mt-1 text-sm text-gray-300"><strong>Autres joueurs :</strong> ${others.join(', ')}</div>`;
@@ -162,90 +117,46 @@ export function setupPlayPage() {
     if (!html) {
       html = `<em>Aucun joueur inscrit</em>`;
     }
-    playerList.innerHTML = html;
+    $("playerList").innerHTML = html;
   };
 
-  const renderStandings = () => {
-    if (!tournament) {
-      standingsEl.innerHTML = "";
-      return;
-    }
-    let html = `<h3 class="font-semibold mb-1">Classement</h3><ul class="list-disc ml-5">`;
-    for (const { alias: name, points: pts } of tournament.getStandings()) {
-      html += `<li>${name}: <strong>${pts}</strong> pts</li>`;
-    }
-    html += `</ul>`;
-    standingsEl.innerHTML = html;
-  };
+  // Ajout joueur au tournoi
+  $("addPlayerBtn").onclick = async () => {
+  const alias = ($("aliasInput") as HTMLInputElement).value.trim();
+  if (!alias) return;
 
-  function showNextMatch() {
-    if (!tournament) return;
-    const m = tournament.nextMatch();
-    currentMatch = m || null;
-
-    if (!m) {
-      matchInfo.innerHTML = `<h3 class="text-green-400">🎉 Tournoi terminé</h3>`;
-      renderStandings();
-      return;
-    }
-
-    matchInfo.innerHTML = `
-      <div class="flex items-center gap-3">
-        <h3 class="text-lg">Prochain match: <strong>${m.p1}</strong> vs <strong>${m.p2}</strong></h3>
-        <button id="launchMatchBtn" class="bg-amber-600 px-3 py-1 rounded">Jouer ce match</button>
-      </div>
-    `;
-
-    const launchBtn = document.getElementById("launchMatchBtn") as HTMLButtonElement | null;
-    if (launchBtn) {
-      launchBtn.onclick = () => {
-        launchBtn.disabled = true;
-        // Monte la scène locale (un seul canvas)
-        
-          showBoardForTournament();
-        // Démarre le match et enregistre le score automatiquement à la fin
-        startLocalMatch(m.p1, m.p2, ({ s1, s2 }) => {
-          tournament!.reportResult(m.p1, m.p2, s1, s2);
-          const token = localStorage.getItem('token');
-          //Verif du token
-          if (token) {
-            fetch('http://localhost:3000/game/result', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`,
-              },
-              body: JSON.stringify({ p1Name: m.p1, p2Name: m.p2, s1, s2 })
-            }).catch(e => console.warn('Enregistrement du match échoué:', e));
-          }
-          renderStandings();
-          showNextMatch();
-        });
-      };
-    }
+  // ⛔ Empêche d’ajouter son propre compte (name ou username)
+  if (alias === loggedName || alias === loggedUsername) {
+    alert("Cet alias correspond déjà à l'utilisateur connecté.");
+    return;
   }
 
-  $("addPlayerBtn").onclick = () => {
-    const alias = aliasInput.value.trim();
-    if (!alias) return;
+  try {
+    // Vérifie si l’alias est un `name` valide
+    const res = await fetch(
+      `http://localhost:3000/users/${encodeURIComponent(alias)}/display`
+    );
+    if (!res.ok) throw new Error("Utilisateur inexistant");
 
-    // Bloque l'ajout si c'est l'alias du user connecté déjà auto-inscrit
-    if (loggedName && alias === loggedName) {
-      alert("Cet alias correspond déjà à l'utilisateur connecté.");
+    const data = await res.json();
+    const display = data.display;
+
+    // ⛔ Empêche les doublons avec `display`
+    if (players.includes(display)) {
+      alert("Ce joueur est déjà inscrit au tournoi.");
       return;
     }
 
-    // Bloque les doublons (autres joueurs)
-    if (players.includes(alias)) {
-      alert("Alias déjà utilisé.");
-      return;
-    }
-
-    players.push(alias);
-    aliasInput.value = "";
+    players.push(display);
+    ($("aliasInput") as HTMLInputElement).value = "";
     refreshPlayers();
-  };
+  } catch (err) {
+    alert("Ce joueur n'existe pas en base. Il doit d’abord se créer un compte.");
+  }
+};
 
+
+  // Lancer le tournoi
   $("startTournamentBtn").onclick = () => {
     if (players.length < 2) {
       alert("Au moins 2 joueurs requis.");
@@ -258,21 +169,105 @@ export function setupPlayPage() {
     showNextMatch();
   };
 
+  // Réinitialiser le tournoi
   $("resetTournamentBtn").onclick = () => {
-    // Vide tout
     players.splice(0, players.length);
     tournament = null;
     currentMatch = null;
 
-    matchInfo.innerHTML = "";
-    standingsEl.innerHTML = "";
+    $("matchInfo").innerHTML = "";
+    $("standings").innerHTML = "";
 
-    // Réinscrit automatiquement l'utilisateur connecté s'il existe
-    if (loggedName) players.push(loggedName);
-
+    if (displaySelf) players.push(displaySelf);
     refreshPlayers();
   };
 
-  // init
+  // Affichage classement
+  const renderStandings = () => {
+    if (!tournament) {
+      $("standings").innerHTML = "";
+      return;
+    }
+    let html = `<h3 class="font-semibold mb-1">Classement</h3><ul class="list-disc ml-5">`;
+    for (const { alias: name, points: pts } of tournament.getStandings()) {
+      html += `<li>${name}: <strong>${pts}</strong> pts</li>`;
+    }
+    html += `</ul>`;
+    $("standings").innerHTML = html;
+  };
+
+  // Match suivant
+  function showNextMatch() {
+    if (!tournament) return;
+    const m = tournament.nextMatch();
+    currentMatch = m || null;
+
+    if (!m) {
+      $("matchInfo").innerHTML = `<h3 class="text-green-400">🎉 Tournoi terminé</h3>`;
+      renderStandings();
+      return;
+    }
+
+    $("matchInfo").innerHTML = `
+      <div class="flex items-center gap-3">
+        <h3 class="text-lg">Prochain match: <strong>${m.p1}</strong> vs <strong>${m.p2}</strong></h3>
+        <button id="launchMatchBtn" class="bg-amber-600 px-3 py-1 rounded">Jouer ce match</button>
+      </div>
+    `;
+
+    const launchBtn = document.getElementById("launchMatchBtn") as HTMLButtonElement | null;
+    if (launchBtn) {
+      launchBtn.onclick = () => {
+        launchBtn.disabled = true;
+        showBoardForTournament();
+
+        startLocalMatch(m.p1, m.p2, ({ s1, s2 }) => {
+          tournament!.reportResult(m.p1, m.p2, s1, s2);
+          const token = localStorage.getItem('token');
+
+          if (token) {
+            fetch('http://localhost:3000/game/result', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`,
+              },
+              body: JSON.stringify({ p1Name: m.p1, p2Name: m.p2, s1, s2 })
+            }).catch(e => console.warn('Enregistrement du match échoué:', e));
+          }
+
+          renderStandings();
+          showNextMatch();
+        });
+      };
+    }
+  }
+
+  // Navigation
+  $("localBtn").onclick = () => {
+    hide(modeChoice);
+    show(localSubmenu);
+    hide(tournamentPanel);
+  };
+  $("backToModeBtn").onclick = () => {
+    show(modeChoice);
+    hide(localSubmenu);
+    hide(tournamentPanel);
+  };
+  $("onlineBtn").onclick = () => forceGameRender("game-online");
+  $("quickPlayBtn").onclick = () => {
+    hide(modeChoice);
+    show(localSubmenu);
+    hide(tournamentPanel);
+    forceGameRender("game-local");
+  };
+  $("tournamentBtn").onclick = () => {
+    hide(modeChoice);
+    show(localSubmenu);
+    show(tournamentPanel);
+  };
+  $("closeTournamentBtn").onclick = () => hide(tournamentPanel);
+
+  // Init
   refreshPlayers();
 }

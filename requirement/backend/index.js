@@ -111,7 +111,7 @@ async function start(){
 				name: name,
 			});
 
-            return { success: true, id: info.lastInsertRowid, token, username};
+            return { success: true, id: info.lastInsertRowid, token, name, username};
         } catch (err) {
             return reply.status(400).send({ error: err.message });
         }
@@ -140,6 +140,7 @@ async function start(){
                         success: { type: 'boolean' },
                         message: { type: 'string' },
                         token: { type: 'string' },
+                        name: { type: 'string' },
                         username: { type: 'string'}
                     }
                 },
@@ -170,7 +171,7 @@ async function start(){
 		}
 
         const token = fastify.jwt.sign({ id: user.id, name: user.name });
-        return { success: true, message: 'Connexion reussie', token , username: user.username}; //200
+        return { success: true, message: 'Connexion reussie', token , name: user.name, username: user.username}; //200
     });
 
 
@@ -207,8 +208,7 @@ function slugifyName(name) {
     }
     }
 
-    // Authentification 
-    
+    // Authentification    
     fastify.decorate("authenticate", async function (request, reply) {
         try {
             request.user = await request.jwtVerify();
@@ -217,7 +217,6 @@ function slugifyName(name) {
         }
     });
     
-
     // Enregistrer un match terminé
     fastify.post('/game/result', {
     preHandler: [fastify.authenticate],
@@ -258,7 +257,7 @@ function slugifyName(name) {
     });
 
     // Enregistre une partie "Quick Play" : le user connecté est fp_id ET sp_id.
-// Le front n'envoie que les scores; on n'invente pas de joueurs "Player1/Player2" côté BDD.
+// Le front n'envoie que les scores, on n'invente pas de joueurs "Player1/Player2" côté BDD.
     fastify.post('/game/quick-result', {
     preHandler: [fastify.authenticate],
     schema: {
@@ -325,7 +324,6 @@ fastify.get('/users/:name/stats', async (request, reply) => {
 });
 
 // Historique de match d’un user par nom
-// Historique du joueur connecté par nom
     fastify.get('/users/:name/history', async (request, reply) => {
     const name = request.params.name;
 
@@ -381,6 +379,23 @@ fastify.get('/users/:name/stats', async (request, reply) => {
     });
 
     return { matches };
+    });
+
+    // Vérifier si un username existe
+    fastify.get('/users/username/:username/exists', async (request, reply) => {
+    const { username } = request.params;
+    const user = db.prepare('SELECT id FROM users WHERE username = ?').get(username);
+    return { exists: !!user };
+    });
+
+    // Choper le name et afficher l'username
+    fastify.get('/users/:name/display', async (request, reply) => {
+    const { name } = request.params;
+    const user = db.prepare('SELECT username, name FROM users WHERE name = ?').get(name);
+    if (!user) {
+        return reply.status(404).send({ error: 'Utilisateur introuvable' });
+    }
+    return { display: user.username || user.name };
     });
 
 	// Verifier le token JWT user et return un 401 si token invalide

@@ -46,25 +46,29 @@ export async function loginUser(event: Event) {
   const name = nameInput.value;
   const password = passwordInput.value;
 
-  const response = await fetch (`${backendUrl}/login`, {
+  const response = await fetch(`${backendUrl}/login`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({name, password}),
+    body: JSON.stringify({ name, password }),
   });
 
-  // Recuperation & stockage en local (client) des donnees USER + refresh la page
   const data = await response.json();
-  if (data.token && data.username) { //gestion du log cote client si login reussi
-    localStorage.setItem('token', data.token); //stock JWT
-    localStorage.setItem('username', data.username); 
-	  navigate("/profile"); // force le refresh pour mettre a jour l'UI
+
+  if (response.ok && data.token) {
+    localStorage.setItem("token", data.token);
+    if (data.username) 
+      localStorage.setItem("username", data.username);
+    if (data.name) 
+      localStorage.setItem("name", data.name);
+
+    navigate("/profile"); // refresh l'UI
   } else {
-    alert("Erreur : " + (data.error || "Connexion echouee"));
+    alert("Erreur : " + (data.error || "Connexion échouée"));
   }
-  // alert(JSON.stringify(data)); //pour print la data de connexion
 }
+
 
 
 export function updateUIForLoggedInUser() {

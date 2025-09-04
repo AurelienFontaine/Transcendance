@@ -39,18 +39,30 @@ export function render() {
 	const urlParams = new URLSearchParams(window.location.search);
 	const error = urlParams.get('error');
 	const token = urlParams.get('token');
+	const realName = urlParams.get('name');
 	const username = urlParams.get('username');
 	const firstTime = urlParams.get('firstTime'); //premiere connection avec OAuth
 
-  if (token) { //Si user connecte -> mettre a jour la page
+ 	if (token) {
 		localStorage.setItem('token', token);
+		if (username) 
+			localStorage.setItem('username', username);
+		if (realName) 
+			localStorage.setItem('name', realName);
 
-    if (username)
-        localStorage.setItem('username', username);
-		// Nettoyer l'URL pour ne pas laisser les paramètres visibles
+		// fallback quand pas d'URL param
+		// → aller lire le JWT pour extraire le `name`
+		if (!realName) {
+			try {
+			const payload = JSON.parse(atob(token.split('.')[1]));
+			if (payload.name) localStorage.setItem('name', payload.name);
+			} catch (e) {
+			console.warn("Impossible de décoder le JWT:", e);
+			}
+		}
 		window.history.replaceState({}, '', window.location.pathname);
 		auth.updateUIForLoggedInUser();
-	}
+		}
 
 	//verification du refus de connection de l'user
 	if (error === 'access_denied') {
