@@ -108,7 +108,8 @@ async function start(){
 
 			const token = fastify.jwt.sign({
 				id: info.lastInsertRowid,
-				name: name,
+				name,
+                username,
 			});
 
             return { success: true, id: info.lastInsertRowid, token, name, username};
@@ -170,8 +171,8 @@ async function start(){
 			return reply.status(401).send({ error: 'Mot de passe incorrect' });
 		}
 
-        const token = fastify.jwt.sign({ id: user.id, name: user.name });
-        return { success: true, message: 'Connexion reussie', token , name: user.name, username: user.username}; //200
+        const token = fastify.jwt.sign({ id: user.id, name: user.name, username: user.username });
+        return { success: true, message: 'Connexion reussie', token , id: user.id, name: user.name, username: user.username}; //200
     });
 
 
@@ -223,10 +224,10 @@ function slugifyName(name) {
     schema: {
         body: {
         type: 'object',
-        required: ['p1Name', 'p2Name', 's1', 's2'],
+        required: ['p1Id', 'p2Id', 's1', 's2'],
         properties: {
-            p1Name: { type: 'string', minLength: 1 },
-            p2Name: { type: 'string', minLength: 1 },
+            p1Id: { type: 'integer' },
+            p2Id: { type: 'integer' },
             s1: { type: 'integer', minimum: 0 },
             s2: { type: 'integer', minimum: 0 },
         }
@@ -242,16 +243,20 @@ function slugifyName(name) {
         }
     }
     }, async (request, reply) => {
-    const { p1Name, p2Name, s1, s2 } = request.body;
+    const { p1Id, p2Id, s1, s2 } = request.body;
 
-    const fp_id = getOrCreateUserIdByName(p1Name);
-    const sp_id = getOrCreateUserIdByName(p2Name);
+    const user1 = db.prepare('SELECT id FROM users WHERE id = ?').get(p1Id);
+    const user2 = db.prepare('SELECT id FROM users WHERE id = ?').get(p2Id);
+
+    if (!user1 || !user2) {
+        return reply.status(400).send({ error: "Utilisateur introuvable" });
+    }
 
     const game_status = 1; //terminé
     const info = db.prepare(`
         INSERT INTO games (fp_id, sp_id, fp_score, sp_score, game_status)
         VALUES (?, ?, ?, ?, ?)
-    `).run(fp_id, sp_id, s1, s2, game_status);
+    `).run(p1Id, p2Id, s1, s2, game_status);
 
     return { success: true, gameId: info.lastInsertRowid };
     });
@@ -328,7 +333,7 @@ fastify.get('/users/:name/stats', async (request, reply) => {
     const name = request.params.name;
 
     // Récupère l'utilisateur par son nom
-    const user = db.prepare('SELECT id, name FROM users WHERE name = ?').get(name);
+    const user = db.prepare('SELECT id, name, username FROM users WHERE name = ?').get(name);
     if (!user) {
         return reply.status(404).send({ error: 'Utilisateur introuvable' });
     }
@@ -361,7 +366,7 @@ fastify.get('/users/:name/stats', async (request, reply) => {
         meLabel  = 'Player1';
         oppLabel = 'Player2';
         } else {
-        meLabel  = user.name;
+        meLabel  = user.username || user.name;
         oppLabel = meIsFirst ? r.sp_name : r.fp_name;
         }
 
@@ -389,13 +394,19 @@ fastify.get('/users/:name/stats', async (request, reply) => {
     });
 
     // Choper le name et afficher l'username
-    fastify.get('/users/:name/display', async (request, reply) => {
-    const { name } = request.params;
-    const user = db.prepare('SELECT username, name FROM users WHERE name = ?').get(name);
+    fastify.get('/users/:alias/display', async (request, reply) => {
+    const { alias } = request.params;
+    const user = db.prepare(`
+        SELECT id, username, name 
+        FROM users 
+        WHERE lower (name) = lower(?)
+    `).get(alias);
+
     if (!user) {
         return reply.status(404).send({ error: 'Utilisateur introuvable' });
     }
-    return { display: user.username || user.name };
+
+    return { id: user.id, name : user.name, display: user.username || user.name };
     });
 
 	// Verifier le token JWT user et return un 401 si token invalide
@@ -460,7 +471,8 @@ fastify.get('/users/:name/stats', async (request, reply) => {
                 const stmt = db.prepare('UPDATE users SET username = ? WHERE id = ?')
                 stmt.run(username, userId);
 
-                const newToken = fastify.jwt.sign({id: userId, username: username });
+                const user = db.prepare('SELECT name FROM users WHERE id = ?').get(userId);
+                const newToken = fastify.jwt.sign({ id: userId, name: user.name, username });
                 return { success: true, username, token: newToken };
             } catch (err) {
                 return (reply.status(400).send({ error: err.message }));

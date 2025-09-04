@@ -32,6 +32,8 @@ export async function createUser(event: Event) {
   if (data.token) { //gestion du log cote client
     localStorage.setItem('token', data.token);
     localStorage.setItem('username', data.username);
+    localStorage.setItem('name', data.name);
+    localStorage.setItem('id', String(data.id));
 	navigate("/profile");
   }
   else {
@@ -62,7 +64,8 @@ export async function loginUser(event: Event) {
       localStorage.setItem("username", data.username);
     if (data.name) 
       localStorage.setItem("name", data.name);
-
+    if (data.id)
+      localStorage.setItem("id", String(data.id));
     navigate("/profile"); // refresh l'UI
   } else {
     alert("Erreur : " + (data.error || "Connexion échouée"));

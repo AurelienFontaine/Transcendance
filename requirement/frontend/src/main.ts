@@ -32,6 +32,30 @@ const routes: Record<string, () => string> = {
 
 ///////// RENDER DE LA PAGE //////////////////////////////////////////
 
+async function refreshSession() {
+  const token = localStorage.getItem("token");
+  if (!token) return;
+
+  try {
+    const res = await fetch("http://localhost:3000/me", {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    if (!res.ok) throw new Error("Session invalide");
+
+    const data = await res.json();
+    if (data.user) {
+      localStorage.setItem("id", String(data.user.id));
+      localStorage.setItem("name", data.user.name);
+      if (data.user.username) {
+        localStorage.setItem("username", data.user.username);
+      }
+    }
+  } catch (e) {
+    console.warn("Impossible de rafraîchir la session:", e);
+  }
+}
+
+
 //ftc principale de rendu de la SPA
 export function render() {
   const path = window.location.pathname;
@@ -160,4 +184,7 @@ document.addEventListener('click', (e) => {
 window.addEventListener('popstate', render);
 
 // Initial render
-render();
+(async () => {
+  await refreshSession();
+  render();
+})();

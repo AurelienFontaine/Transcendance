@@ -52,85 +52,82 @@ export function renderProfile() {
   `;
 }
 
-/** À appeler depuis main.ts quand path === '/profile' */
 export function setupProfilePage() {
   const historyDiv = document.getElementById('historyContent');
   const showWelcome = document.getElementById('showWelcome') as HTMLElement | null;
   const logoutBtn = document.getElementById('logoutButton') as HTMLButtonElement | null;
   if (!historyDiv) return;
 
-  // Nom connecté (si présent)
-  const name = (localStorage.getItem('username') || '').trim();
+  // Récupère le vrai name
+  const realName = (localStorage.getItem('name') || '').trim();
+  // Pour l’affichage on prend le username s’il existe
+  const username = (localStorage.getItem('username') || realName).trim();
 
   // Affichage bienvenue + bouton logout si connecté
-  if (name) {
+  if (username) {
     if (showWelcome) {
       showWelcome.classList.remove('hidden');
-      showWelcome.textContent = `Bienvenue, ${name} !`;
+      showWelcome.textContent = `Bienvenue, ${username} !`;
     }
     if (logoutBtn) logoutBtn.classList.remove('hidden');
   }
 
   // Si pas connecté
-  if (!name) {
+  if (!realName) {
     historyDiv.innerHTML = `<em class="text-gray-400">Connectez-vous pour voir votre historique.</em>`;
     return;
   }
 
   historyDiv.innerHTML = `<span class="text-gray-300">Chargement…</span>`;
-
-  fetch(`http://localhost:3000/users/${encodeURIComponent(name)}/history`)
+  fetch(`http://localhost:3000/users/${encodeURIComponent(realName)}/history`)
     .then((res) => {
       if (!res.ok) throw new Error('HTTP ' + res.status);
       return res.json();
     })
     .then((data) => {
+      console.log("[DEBUG] Reçu depuis /history:", data);
       console.log('[profile] matches from backend:', data);
       const matches = Array.isArray(data?.matches) ? data.matches : [];
       if (!matches.length) {
-        historyDiv.innerHTML = `<em class="text-gray-400">Aucun match enregistré pour ${name}.</em>`;
+        historyDiv.innerHTML = `<em class="text-gray-400">Aucun match enregistré pour ${username}.</em>`;
         return;
       }
 
-      // Ne garder que les 10 derniers matchs (du plus récent au plus ancien)
-  const last10 = [...matches].sort(
-    (a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime()
-  ).slice(0, 10);
+      // Ne garder que les 10 derniers matchs
+      const last10 = [...matches].sort(
+        (a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime()
+      ).slice(0, 10);
 
-  const html = last10
-  .map((m: any) => {
-    const isVictory = m.result === 'W';
+      const html = last10
+        .map((m: any) => {
+          const isVictory = m.result === 'W';
+          const resultLabel = isVictory ? 'Victoire' : 'Défaite';
+          const cardBg = isVictory ? 'bg-green-200' : 'bg-red-200';
+          const borderClr = isVictory ? 'border-green-400' : 'border-red-400';
+          const when = new Date(m.date).toLocaleString();
 
-    const resultLabel = isVictory ? 'Victoire' : 'Défaite';
-    const cardBg = isVictory ? 'bg-green-200' : 'bg-red-200';
-    const borderClr = isVictory ? 'border-green-400' : 'border-red-400';
+          return `
+            <div class="${cardBg} border ${borderClr} rounded-lg p-4 shadow space-y-2">
+              <div class="flex flex-wrap items-center gap-3">
+                <span class="font-bold text-black">${resultLabel}</span>
+                <span class="opacity-60 text-black">•</span>
+                <span class="text-black"><span class="font-semibold">Moi :</span> ${m.me}</span>
+                <span class="opacity-60 text-black">•</span>
+                <span class="text-black"><span class="font-semibold">Score :</span> ${m.myScore} - ${m.oppScore}</span>
+                <span class="opacity-60 text-black">•</span>
+                <span class="text-black"><span class="font-semibold">Adversaire :</span> ${m.opponent}</span>
+              </div>
+              <div class="text-xs opacity-70 text-black">${when}</div>
+            </div>
+          `;
+        })
+        .join('');
 
-    const when = new Date(m.date).toLocaleString();
-
-    return `
-    <div class="${cardBg} border ${borderClr} rounded-lg p-4 shadow space-y-2">
-      <div class="flex flex-wrap items-center gap-3">
-        <span class="font-bold text-black">${resultLabel}</span>
-        <span class="opacity-60 text-black">•</span>
-        <span class="text-black"><span class="font-semibold">Username :</span> ${m.me}</span>
-        <span class="opacity-60 text-black">•</span>
-        <span class="text-black"><span class="font-semibold">Score :</span> ${m.myScore} - ${m.oppScore}</span>
-        <span class="opacity-60 text-black">•</span>
-        <span class="text-black"><span class="font-semibold">Adversaire :</span> ${m.opponent}</span>
-      </div>
-      <div class="text-xs opacity-70 text-black">${when}</div>
-    </div>
-  `;
-
-  })
-  .join('');
-
-
-    historyDiv.innerHTML = html;
-
+      historyDiv.innerHTML = html;
     })
     .catch((err) => {
       console.error(err);
       historyDiv.innerHTML = `<span class="text-red-400">Erreur de chargement de l’historique.</span>`;
     });
 }
+

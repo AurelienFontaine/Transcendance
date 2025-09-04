@@ -1,110 +1,79 @@
-// requirement/shared/game/tournament.ts
-export type Match = { p1: string; p2: string };
+// requirement/frontend/handlers/game/tournament.ts
 
-export type StandingRow = {
-  alias: string;
-  played: number;
-  wins: number;
-  losses: number;
-  draws: number;
-  goalsFor: number;
-  goalsAgainst: number;
-  points: number;        // scoring-by-goals: max(own - opp, 0)
-};
+export interface Player {
+  id: number;
+  display: string;
+}
+
+interface Match {
+  p1: Player;
+  p2: Player;
+  played: boolean;
+  s1?: number;
+  s2?: number;
+}
 
 export class Tournament {
-  private players: string[] = [];
-  private schedule: Match[] = [];
-  private cursor = 0;
-  private table: Map<string, StandingRow> = new Map();
+  private players: Player[] = [];
+  private matches: Match[] = [];
+  private currentIndex = 0;
+  private standings: Map<number, number> = new Map(); // Map<playerId, points>
 
-  addPlayer(alias: string) {
-    alias = alias.trim();
-    if (!alias || this.players.includes(alias)) return;
-    this.players.push(alias);
-    if (!this.table.has(alias)) {
-      this.table.set(alias, {
-        alias,
-        played: 0,
-        wins: 0,
-        losses: 0,
-        draws: 0,
-        goalsFor: 0,
-        goalsAgainst: 0,
-        points: 0,
-      });
+  addPlayer(player: Player) {
+    if (this.players.some(p => p.id === player.id)) {
+      throw new Error(`Player ${player.display} already added`);
     }
+    this.players.push(player);
+    this.standings.set(player.id, 0);
   }
 
-  resetPlayers() {
-    this.players = [];
-    this.schedule = [];
-    this.cursor = 0;
-    this.table.clear();
-  }
-
-  /** Round-robin: n(n-1)/2 matches */
   generateMatches() {
-    const m: Match[] = [];
+    this.matches = [];
     for (let i = 0; i < this.players.length; i++) {
       for (let j = i + 1; j < this.players.length; j++) {
-        m.push({ p1: this.players[i], p2: this.players[j] });
+        this.matches.push({ p1: this.players[i], p2: this.players[j], played: false });
       }
     }
-    this.schedule = m;
-    this.cursor = 0;
+    this.currentIndex = 0;
   }
 
-  /** Returns the full schedule */
-  getMatches(): Match[] {
-    return this.schedule.slice();
-  }
-
-  /** Returns the next match, or null if finished */
   nextMatch(): Match | null {
-    if (this.cursor >= this.schedule.length) return null;
-    return this.schedule[this.cursor];
-  }
-
-  /** Records a finished match and advances the cursor */
-  reportResult(p1: string, p2: string, s1: number, s2: number) {
-    // update cursor only if this match is the current one
-    const cur = this.nextMatch();
-    if (cur && ((cur.p1 === p1 && cur.p2 === p2) || (cur.p1 === p2 && cur.p2 === p1))) {
-      this.cursor++;
+    while (this.currentIndex < this.matches.length) {
+      const match = this.matches[this.currentIndex];
+      if (!match.played) {
+        return match;
+      }
+      this.currentIndex++;
     }
-
-    const a = this.table.get(p1);
-    const b = this.table.get(p2);
-    if (!a || !b) return;
-
-    a.played++; b.played++;
-    a.goalsFor += s1; a.goalsAgainst += s2;
-    b.goalsFor += s2; b.goalsAgainst += s1;
-
-    if (s1 > s2) { a.wins++; b.losses++; }
-    else if (s2 > s1) { b.wins++; a.losses++; }
-    else { a.draws++; b.draws++; }
-
-    // scoring-by-goals to break ties:
-    // winner gets (own - opp) points, loser gets 0; draw gives 0 to both.
-    a.points += Math.max(s1 - s2, 0);
-    b.points += Math.max(s2 - s1, 0);
+    return null;
   }
 
-  /** Standings sorted by points, then goal diff, then goals for, then alias */
-  getStandings(): StandingRow[] {
-    return Array.from(this.table.values()).sort((x, y) => {
-      if (y.points !== x.points) return y.points - x.points;
-      const gdX = x.goalsFor - x.goalsAgainst;
-      const gdY = y.goalsFor - y.goalsAgainst;
-      if (gdY !== gdX) return gdY - gdX;
-      if (y.goalsFor !== x.goalsFor) return y.goalsFor - x.goalsFor;
-      return x.alias.localeCompare(y.alias);
-    });
+  reportResult(p1Id: number, p2Id: number, s1: number, s2: number) {
+    const match = this.matches.find(
+      m => m.p1.id === p1Id && m.p2.id === p2Id && !m.played
+    );
+    if (!match) throw new Error("Match not found or already played");
+
+    match.played = true;
+    match.s1 = s1;
+    match.s2 = s2;
+
+    if (s1 > s2) {
+      this.standings.set(p1Id, (this.standings.get(p1Id) || 0) + 3);
+    } else if (s2 > s1) {
+      this.standings.set(p2Id, (this.standings.get(p2Id) || 0) + 3);
+    } else {
+      this.standings.set(p1Id, (this.standings.get(p1Id) || 0) + 1);
+      this.standings.set(p2Id, (this.standings.get(p2Id) || 0) + 1);
+    }
   }
 
-  isFinished(): boolean {
-    return this.cursor >= this.schedule.length && this.schedule.length > 0;
+  getStandings() {
+    return Array.from(this.standings.entries())
+      .map(([id, points]) => {
+        const player = this.players.find(p => p.id === id)!;
+        return { id, alias: player.display, points };
+      })
+      .sort((a, b) => b.points - a.points);
   }
 }
