@@ -1,12 +1,16 @@
-
+const path = require('path');
+const fs = require('fs'); //filesystem
 
 async function avatar(fastify, options) { // fonction multi route a exporter
     // Afficher une image
+
     fastify.get("/images/:filename", async (req, reply) => { // Route publique pour que le front puisse afficher les images
-        const filePath = path.join(__dirname, "data", "imgs", req.params.filename);
-        if (!fs.existsSync(filePath))
+
+        const safeFilename = path.basename(req.params.filename); // Extrait le nom du fichier du path total pour eviter les chemins malveillants
+        const filePath = path.join(__dirname, "..", "..", "data", "imgs", safeFilename);
+        if (!fs.existsSync(filePath)) //on check que le file existe avant de l'envoyer en memoire
             return (reply.code(404).send({ error: "File not found" }));
-        return (reply.type("image/jpeg").send(fs.createReadStream(filePath)));
+        return (reply.type("image/jpg").send(fs.createReadStream(filePath)));
     });
 
     // Lister les images dans le fichier 'imgs'

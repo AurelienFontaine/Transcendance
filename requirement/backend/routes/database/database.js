@@ -8,7 +8,7 @@ db.prepare(`
         email TEXT NOT NULL UNIQUE,
         password_hash TEXT NOT NULL,
 		username TEXT NOT NULL DEFAULT robot,
-        avatar TEXT NOT NULL DEFAULT 'Astro.jpeg',
+        avatar TEXT NOT NULL DEFAULT 'Astro.jpg',
         win INTEGER DEFAULT 0
     )
 `).run();

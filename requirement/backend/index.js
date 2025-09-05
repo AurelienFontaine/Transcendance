@@ -13,6 +13,7 @@ fastify.register(jwt, {
 const cors = require ('@fastify/cors'); //autoriser la SPA a appeler l'API (back)
 fastify.register(cors, { //autorise les requetes venant de l'origine (c'est un tableau on pourra ajouter des liens)
     origin : ["http://localhost:8080"]
+    // origin: '*'
 });
 
 // Importer les librairies
