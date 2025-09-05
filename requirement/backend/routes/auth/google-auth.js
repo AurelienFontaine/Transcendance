@@ -1,9 +1,7 @@
 //fichier concernant l'authentification OAuth2 avec google
-const axios = require('axios');
-const db = require('../../database.js');
-const bcrypt = require('bcrypt'); //hashage mdp
-const crypto = require('crypto'); //generation caracteres aleatoire
-
+const bcrypt = require('bcrypt');
+const axios = require('axios'); //requetes http depuis le front
+const crypto = require('crypto');
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
@@ -14,22 +12,30 @@ const REDIRECT_URI = process.env.GOOGLE_REDIRECT_URI;
 // - l'instance du serveur backend "fastify" pour declarer les routes
 // - hashPassword: fct de hashage de mdp
 
+function registerGoogleAuthRoutes(fastify) {
+	const db = fastify.db;
 
-function generateRandomPassword(length = 16) {
+
+	function generateRandomPassword(length = 16) {
 	return (crypto.randomBytes(length).toString('hex')); // genere un mdp aleatoire de 16 caracteres
-}
-
-function generateUniqueUsername(username) {
-	let username_tmp = username;
-	let i = 1;
-	while (db.prepare('SELECT id FROM users WHERE username = ?').get(username_tmp)) {
-		username_tmp = `${username}${i}`;
-		i++;
 	}
-	return (username_tmp);
-}
 
-function registerGoogleAuthRoutes(fastify, hashPassword) {
+	function generateUniqueUsername(username) {
+		let username_tmp = username;
+		let i = 1;
+		while (db.prepare('SELECT id FROM users WHERE username = ?').get(username_tmp)) {
+			username_tmp = `${username}${i}`;
+			i++;
+		}
+		return (username_tmp);
+	}
+
+	// Hachage mdp
+	// const hashPassword = async (password) => {
+	// 	const saltRounds = 10;
+	// 	const hashed = await bcrypt.hash(password, saltRounds);
+	// 	return hashed;
+	// };
 
 	// Redirection vers la page Google, declare la route /auth/google, ne renvoie pas de contenu html, redirige directement vers google
 	fastify.get('/auth/google', async (request, reply) => {
@@ -104,7 +110,7 @@ function registerGoogleAuthRoutes(fastify, hashPassword) {
 			if (firstTime)
 			{
 				let name = email; //Le login d'un user google sera toujours son email mais il sera impossible de rentrer a la main un mail donc impossible d'avoir une duplicite
-				const randomPassword = await hashPassword(generateRandomPassword());
+				const randomPassword = await fastify.hashPassword(generateRandomPassword());
 
 				// Gerer le cas de l'username deja existant:
 				username = generateUniqueUsername(googleName);
