@@ -84,10 +84,17 @@ async function start(){
             }
         }
     },
-    async (request, reply) => { //c'est toujours dans /register
-        const { name, email, password } = request.body;
+        async (request, reply) => { //c'est toujours dans /register
+            let { name, email, password } = request.body;
+       // Normalisation de base (évite les "espaces fantômes" qui cassent les comparaisons)
+            name  = String(name).trim();
+            email = String(email).trim();
+            const existUser = db.prepare(`
+            SELECT id FROM users
+            WHERE name = ? COLLATE NOCASE
+                OR email = ?
+            `).get(name, email);   
         // Check utilisateur deja cree
-        const existUser = db.prepare('SELECT id FROM users WHERE name = ? OR email = ?').get(name, email);
         if (existUser) {
             return reply.status(409).send({ error: 'Nom ou email deja utilise' });
         }
@@ -218,6 +225,32 @@ function slugifyName(name) {
         }
     });
     
+        // =========================
+    // 🔒 LOOKUPS STRICTS USERS
+    // =========================
+    // Trouver un user par *name* (insensible à la casse) — pour ajouter au tournoi
+    fastify.get('/users/by-name/:name', async (request, reply) => {
+        const name = String(request.params.name || '').trim();
+        const user = db.prepare(`
+            SELECT id, name, username
+            FROM users
+            WHERE name = ? COLLATE NOCASE
+        `).get(name);
+        if (!user) return reply.status(404).send({ error: 'name not found' });
+        return { id: user.id, name: user.name, username: user.username };
+    });
+
+     // Vérifier l’existence d’un *username* (insensible à la casse) — aide au message front
+    fastify.get('/users/by-username/:username', async (request, reply) => {
+        const { username } = request.params;
+        const user = db.prepare(`
+            SELECT id FROM users
+            WHERE username = ? COLLATE NOCASE
+        `).get(username);
+        if (!user) return reply.status(404).send({ error: 'username not found' });
+        return { ok: true, id: user.id };
+    });
+
     // Enregistrer un match terminé
     fastify.post('/game/result', {
     preHandler: [fastify.authenticate],
@@ -393,20 +426,35 @@ fastify.get('/users/:name/stats', async (request, reply) => {
     return { exists: !!user };
     });
 
-    // Choper le name et afficher l'username
+
+    // // Choper le name et afficher l'username
+    // fastify.get('/users/:alias/display', async (request, reply) => {
+    // const { alias } = request.params;
+    // const user = db.prepare(`
+    //     SELECT id, username, name 
+    //     FROM users 
+    //     WHERE lower (name) = lower(?)
+    // `).get(alias);
+
+    // if (!user) {
+    //     return reply.status(404).send({ error: 'Utilisateur introuvable' });
+    // }
+
+    // return { id: user.id, name : user.name, display: user.username || user.name };
+    // });
+
+        // Choper le *name* et retourner l'alias d'affichage (username) — name-only (NOCASE)
     fastify.get('/users/:alias/display', async (request, reply) => {
-    const { alias } = request.params;
-    const user = db.prepare(`
-        SELECT id, username, name 
-        FROM users 
-        WHERE lower (name) = lower(?)
-    `).get(alias);
-
-    if (!user) {
-        return reply.status(404).send({ error: 'Utilisateur introuvable' });
-    }
-
-    return { id: user.id, name : user.name, display: user.username || user.name };
+        const alias = String(request.params.alias || '').trim();
+        const user = db.prepare(`
+            SELECT id, username, name
+            FROM users
+            WHERE name = ? COLLATE NOCASE
+        `).get(alias);
+        if (!user) {
+            return reply.status(404).send({ error: 'Utilisateur introuvable' });
+        }
+        return { id: user.id, name: user.name, display: user.username || user.name };
     });
 
 	// Verifier le token JWT user et return un 401 si token invalide

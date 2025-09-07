@@ -12,6 +12,12 @@ db.prepare(`
     )
 `).run();
 
+//Accélère les vérifs d'unicité / existence sur username
+db.prepare(`
+    CREATE INDEX IF NOT EXISTS idx_users_username ON users(username)
+`).run();
+
+
 db.prepare(`
     CREATE TABLE IF NOT EXISTS server (
     id_player INTEGER NOT NULL,

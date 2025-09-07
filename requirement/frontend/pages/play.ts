@@ -36,8 +36,7 @@ export function renderPlay() {
   </div>
   
   <div id="registration" class="flex gap-2 items-center mb-3">
-  <input id="aliasInput" placeholder="Entrer un alias joueur" class="text-black px-2 py-1 rounded"/>
-  <button id="addPlayerBtn"   class="bg-green-600 px-3 py-1 rounded">Ajouter joueur</button>
+  <input id="aliasInput" placeholder="Entrer un *name* (nom de compte)" class="text-black px-2 py-1 rounded"/>  <button id="addPlayerBtn"   class="bg-green-600 px-3 py-1 rounded">Ajouter joueur</button>
   <button id="startTournamentBtn" class="bg-blue-600  px-3 py-1 rounded">Lancer le tournoi</button>
   <button id="resetTournamentBtn" class="bg-gray-600 px-3 py-1 rounded">Réinitialiser</button>
   </div>
@@ -92,19 +91,16 @@ export function setupPlayPage() {
   const tournamentPanel = $("tournamentPanel");
   
   // État tournoi
-  type Player = { id: number; display: string };
+  type Player = { id: number; name: string; display: string };
   let currentMatch: { p1: Player; p2: Player } | null = null;
-  
-  const players: { id: number; name: string; display: string }[] = [];
+  const players: Player[] = [];
   
   const token = localStorage.getItem("token");
   const myId = localStorage.getItem("id");
   const rawUsername = localStorage.getItem("username");
   const rawName = localStorage.getItem("name");
   
-  let displaySelf: { id: number; name: string; display: string } | null = null;
-  console.log("[DEBUG setupPlayPage] displaySelf =", displaySelf);
-  console.log("[DEBUG setupPlayPage] players =", players);
+  let displaySelf: Player | null = null;
 
   // let selfPlayer: Player | null = null;
   if (token && myId && rawName) {
@@ -152,22 +148,18 @@ export function setupPlayPage() {
   const standingsEl = $("standings");
 
   const refreshPlayers = () => {
-  const ln = displaySelf; // ton joueur connecté
-  const others = ln ? players.filter(p => p.id !== ln.id) : [...players];
-
-  let html = '';
-  if (ln) {
-    html += `<div>Inscrit (connecté) : <strong>${ln.display}</strong></div>`;
-  }
-  if (others.length) {
-    html += `<div class="mt-1 text-sm text-gray-300"><strong>Autres joueurs :</strong> ${others.map(p => p.display).join(', ')}</div>`;
-  }
-  if (!html) {
-    html = `<em>Aucun joueur inscrit</em>`;
-  }
-  playerList.innerHTML = html;
-};
-
+    const ln = displaySelf;
+    const others = ln ? players.filter(p => p.id !== ln.id) : [...players];
+    let html = '';
+    if (ln) {
+     html += `<div>Inscrit (connecté) : <strong>${ln.display}</strong> <span class="text-gray-400">(name: ${ln.name})</span></div>`;
+    }
+    if (others.length) {
+     html += `<div class="mt-1 text-sm text-gray-300"><strong>Autres joueurs :</strong> ${others.map(p => `${p.display} <span class="text-gray-500">(name: ${p.name})</span>`).join(', ')}</div>`;
+    }
+    if (!html) html = `<em>Aucun joueur inscrit</em>`;
+     playerList.innerHTML = html;
+   };
 
   const renderStandings = () => {
     if (!tournament) {
@@ -206,7 +198,7 @@ export function setupPlayPage() {
         launchBtn.disabled = true;
         showBoardForTournament();
         startLocalMatch(m.p1.display, m.p2.display, ({ s1, s2 }) => {
-          tournament!.reportResult(m.p1.display, m.p2.display, s1, s2);
+          tournament!.reportResult(m.p1.id, m.p2.id, s1, s2);
 
           const token = localStorage.getItem("token");
           if (token) {
@@ -226,35 +218,60 @@ export function setupPlayPage() {
     }
   }
 
-  $("addPlayerBtn").onclick = async () => {
-    const alias = ($("aliasInput") as HTMLInputElement).value.trim();
-    if (!alias) return;
-
-    // ⛔ Empêche d’ajouter son propre compte (name ou username)
-    if (displaySelf && (alias === displaySelf.name || alias === displaySelf.display)) {
-      alert("Cet alias correspond déjà à l'utilisateur connecté.");
-      return;
+  // --- Helpers stricts name-only ---
+  async function fetchUserByNameStrict(name: string): Promise<Player | null> {
+    const res = await fetch(`http://localhost:3000/users/by-name/${encodeURIComponent(name.trim())}`);
+    if (res.ok) {
+      const data = await res.json();
+      // Forcer le typage number + trim côté front (sécurité)
+      const id = Number(data.id);
+       const nm = String(data.name || '').trim();
+       const disp = String(data.username ?? data.name ?? '').trim();
+       return { id, name: nm, display: disp };
     }
+    if (res.status === 404) return null;
+    throw new Error("Erreur serveur");
+  }
+  async function fetchUserByUsernameForHint(username: string): Promise<boolean> {
+    const res = await fetch(`http://localhost:3000/users/by-username/${encodeURIComponent(username)}`);
+    return res.ok;
+  }
+
+  $("addPlayerBtn").onclick = async () => {
+    const alias = (document.getElementById("aliasInput") as HTMLInputElement).value.trim();
+    if (!alias) return;
+    console.debug('[ADD] saisie=', alias, 'players=', players.map(p => ({id:p.id, name:p.name, display:p.display})));
+
+    // if (displaySelf && (alias === displaySelf.name || alias === displaySelf.display)) {
+    //   alert("Cet alias correspond déjà à l'utilisateur connecté.");
+    //   return;
+    // }
 
     try {
-      // 🔍 Vérifie si l’alias correspond à un name OU username en base
-      const res = await fetch(`http://localhost:3000/users/${encodeURIComponent(alias)}/display`);
-      if (!res.ok) throw new Error("Utilisateur inexistant");
-
-      const data = await res.json();
-      const newPlayer = { id: data.id, name: data.name ?? alias, display: data.display };
-
-      // ⛔ Empêche les doublons (même id déjà dans players)
-      if (players.some(p => p.id === newPlayer.id)) {
+      const byName = await fetchUserByNameStrict(alias);
+      if (!byName) {
+        const isUsername = await fetchUserByUsernameForHint(alias);
+        if (isUsername) {
+          alert("Vous avez saisi un 'username'. On n'ajoute que par 'name' (nom de compte).");
+        } else {
+          alert("Cet utilisateur n'existe pas (name inconnu). Il doit d’abord créer un compte.");
+        }
+        return;
+      }
+      
+      if (players.some(p => Number(p.id) === Number(byName.id))) {
+        console.debug('[ADD] doublon détecté pour id=', byName.id, 'liste=', players.map(p=>p.id));
         alert("Ce joueur est déjà inscrit.");
         return;
       }
 
-      players.push(newPlayer);
-      ($("aliasInput") as HTMLInputElement).value = "";
+      players.push(byName);
+      (document.getElementById("aliasInput") as HTMLInputElement).value = "";
+      console.debug('[ADD] ajouté=', byName, 'players=', players.map(p => ({id:p.id, name:p.name, display:p.display})));
       refreshPlayers();
     } catch (err) {
-      alert("Ce joueur n'existe pas en base. Il doit d’abord se créer un compte.");
+      console.error(err);
+      alert("Erreur lors de la vérification du joueur.");
     }
   };
 
@@ -264,7 +281,7 @@ export function setupPlayPage() {
       return;
     }
     tournament = new Tournament();
-    players.forEach((p) => tournament!.addPlayer(p.display));
+    players.forEach((p) => tournament!.addPlayer({id : p.id, display: p.display}));
     tournament.generateMatches();
     renderStandings();
     showNextMatch();
