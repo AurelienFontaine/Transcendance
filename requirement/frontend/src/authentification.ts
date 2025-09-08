@@ -4,6 +4,13 @@ import { navigate } from "./utils";
 
 import * as userM from "./user_management";
 
+function clearSessionStorage() {
+  localStorage.removeItem("token");
+  localStorage.removeItem("id");
+  localStorage.removeItem("name");
+  localStorage.removeItem("username");
+}
+
 export async function createUser(event: Event) {
   event.preventDefault(); //empeche le rechargement de la page
   //recuperation des champs du formulaire
@@ -116,7 +123,6 @@ export function updateUIForLoggedInUser() {
 	}
 }
 
-
 export async function checkIfLoggedIn() {
   await tokenCheck(); //verif la validite du token en back
   const token = localStorage.getItem('token');
@@ -133,10 +139,6 @@ export function updateUIForLoggedOutUser() {
   const changeForm = document.getElementById('changeUsernameForm');
   if (changeForm)
 		changeForm.style.display = 'none';
-
-  // const passwordForm = document.getElementById('changePasswordForm');
-  // if (passwordForm)
-	// 	passwordForm.style.display = 'none';
 
   const passwordChangeBtn = document.getElementById('changePasswordBtn');
   if (passwordChangeBtn)
@@ -163,10 +165,26 @@ export function updateUIForLoggedOutUser() {
     chatLink.style.display = 'none';
 }
 
-export function logoutUser() {
-  localStorage.removeItem('token');
-  updateUIForLoggedOutUser();
-}
+export function logoutUser(e?: Event) {
+  if (e) e.preventDefault();
+  clearSessionStorage();
+  navigate('/profile');
+  window.location.pathname === '/profile' && (window.location.reload());
+
+  clearSessionStorage();
+
+  // 2) Nettoyage immédiat de l’UI si on est déjà sur /profile
+  const historyDiv  = document.getElementById('historyContent');
+  const showWelcome = document.getElementById('showWelcome');
+  const logoutBtn   = document.getElementById('logoutButton');
+  if (historyDiv)  historyDiv.innerHTML = `<em class="text-gray-400">Connectez-vous pour voir votre historique.</em>`;
+  if (showWelcome) { showWelcome.classList.add('hidden'); showWelcome.textContent = ''; }
+  if (logoutBtn)   logoutBtn.classList.add('hidden');
+
+  // 3) Forcer un re-render même si on reste sur /profile
+  window.history.replaceState({}, '', '/profile');
+  window.dispatchEvent(new PopStateEvent('popstate'));
+ }
 
 export async function tokenCheck() {
   const token = localStorage.getItem('token');

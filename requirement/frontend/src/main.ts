@@ -32,6 +32,15 @@ const routes: Record<string, () => string> = {
 
 ///////// RENDER DE LA PAGE //////////////////////////////////////////
 
+// --- utils session ---
+function clearSessionStorage() {
+  localStorage.removeItem("token");
+  localStorage.removeItem("id");
+  localStorage.removeItem("name");
+  localStorage.removeItem("username");
+}
+
+
 async function refreshSession() {
   const token = localStorage.getItem("token");
   if (!token) return;
@@ -40,7 +49,10 @@ async function refreshSession() {
     const res = await fetch("http://localhost:3000/me", {
       headers: { Authorization: `Bearer ${token}` }
     });
-    if (!res.ok) throw new Error("Session invalide");
+    if (!res.ok) {
+		clearSessionStorage();
+        return;
+	};
 
     const data = await res.json();
     if (data.user) {
@@ -52,6 +64,7 @@ async function refreshSession() {
     }
   } catch (e) {
     console.warn("Impossible de rafraîchir la session:", e);
+	clearSessionStorage();
   }
 }
 

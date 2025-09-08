@@ -43,9 +43,9 @@ export function renderProfile() {
         <button style="padding: 10px 20px; background-color: #4285F4; color: white; border: none; border-radius: 5px;">Se connecter avec Google</button>
       </a>
 
-      <!-- Historique des matchs -->
+      <!-- Historique des matchs : -->
       <div>
-        <h2 class="text-xl font-semibold mb-3">Historique des matchs</h2>
+        <h2 class="text-xl font-semibold mb-3">Historique des matchs : </h2>
         <div id="historyContent" class="space-y-4"></div>
       </div>
     </div>
@@ -58,12 +58,22 @@ export function setupProfilePage() {
   const logoutBtn = document.getElementById('logoutButton') as HTMLButtonElement | null;
   if (!historyDiv) return;
 
-  // Récupère le vrai name
+  const token = localStorage.getItem('token');
   const realName = (localStorage.getItem('name') || '').trim();
-  // Pour l’affichage on prend le username s’il existe
   const username = (localStorage.getItem('username') || realName).trim();
 
-  // Affichage bienvenue + bouton logout si connecté
+  // Si pas connecté (pas de token ou pas de realName valide)
+  if (!token || !realName) {
+    if (showWelcome) {
+      showWelcome.classList.add('hidden');
+      showWelcome.textContent = '';
+    }
+    if (logoutBtn) logoutBtn.classList.add('hidden');
+    historyDiv.innerHTML = `<em class="text-gray-400">Connectez-vous pour voir votre historique.</em>`;
+    return;
+  }
+
+  // Si connecté → afficher bienvenue + bouton logout
   if (username) {
     if (showWelcome) {
       showWelcome.classList.remove('hidden');
@@ -72,31 +82,25 @@ export function setupProfilePage() {
     if (logoutBtn) logoutBtn.classList.remove('hidden');
   }
 
-  // Si pas connecté
-  if (!realName) {
-    historyDiv.innerHTML = `<em class="text-gray-400">Connectez-vous pour voir votre historique.</em>`;
-    return;
-  }
-
+  // Charger l’historique
   historyDiv.innerHTML = `<span class="text-gray-300">Chargement…</span>`;
-  fetch(`http://localhost:3000/users/${encodeURIComponent(realName)}/history`)
+  fetch(`http://localhost:3000/users/${encodeURIComponent(realName)}/history`, {
+    headers: { Authorization: `Bearer ${token}` }
+  })
     .then((res) => {
       if (!res.ok) throw new Error('HTTP ' + res.status);
       return res.json();
     })
     .then((data) => {
-      console.log("[DEBUG] Reçu depuis /history:", data);
-      console.log('[profile] matches from backend:', data);
       const matches = Array.isArray(data?.matches) ? data.matches : [];
       if (!matches.length) {
         historyDiv.innerHTML = `<em class="text-gray-400">Aucun match enregistré pour ${username}.</em>`;
         return;
       }
 
-      // Ne garder que les 10 derniers matchs
-      const last10 = [...matches].sort(
-        (a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime()
-      ).slice(0, 10);
+      const last10 = [...matches]
+        .sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime())
+        .slice(0, 10);
 
       const html = last10
         .map((m: any) => {
@@ -130,4 +134,5 @@ export function setupProfilePage() {
       historyDiv.innerHTML = `<span class="text-red-400">Erreur de chargement de l’historique.</span>`;
     });
 }
+
 

@@ -242,19 +242,14 @@ export function setupPlayPage() {
     if (!alias) return;
     console.debug('[ADD] saisie=', alias, 'players=', players.map(p => ({id:p.id, name:p.name, display:p.display})));
 
-    // if (displaySelf && (alias === displaySelf.name || alias === displaySelf.display)) {
-    //   alert("Cet alias correspond déjà à l'utilisateur connecté.");
-    //   return;
-    // }
-
     try {
       const byName = await fetchUserByNameStrict(alias);
       if (!byName) {
         const isUsername = await fetchUserByUsernameForHint(alias);
         if (isUsername) {
-          alert("Vous avez saisi un 'username'. On n'ajoute que par 'name' (nom de compte).");
+          alert("Vous avez saisi un 'username'. On n'ajoute que par nom de compte.");
         } else {
-          alert("Cet utilisateur n'existe pas (name inconnu). Il doit d’abord créer un compte.");
+          alert("Cet utilisateur n'existe pas. Il doit d’abord créer un compte.");
         }
         return;
       }
