@@ -106,3 +106,23 @@ export async function setDefaultAvatar(filename: string) {
   });
   document.getElementById("currentAvatar")?.setAttribute("src", `${backendUrl}/images` + filename);
 }
+
+export async function loadAvatar() {
+	try {
+		const response = await fetch("http://localhost:3000/me", {
+			method: "GET",
+			headers: {
+				"Authorization": "Bearer " + localStorage.getItem("token")
+			}
+		});
+		if (!response.ok)
+			throw (new Error("Can't load profile"));
+		const data = await response.json();
+		const avatarFile = data.user.avatar;
+		const avatarImg = document.getElementById("currentAvatar");
+		if (avatarFile && avatarImg)
+			avatarImg.src = `http://localhost:3000/images/${avatarFile}`;
+	} catch (err) {
+		console.error(err);
+	}
+}
