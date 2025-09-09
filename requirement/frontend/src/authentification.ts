@@ -88,12 +88,24 @@ export function updateUIForLoggedInUser() {
 	if (chatLink)
     chatLink.style.display = 'inline-block';
 
+  const avatarUser = document.getElementById('currentAvatar');
+  if (avatarUser)
+    avatarUser.style.display = "block";
+
+  const chooseAvatar = document.getElementById('chooseAvatar');
+  if (chooseAvatar)
+    chooseAvatar.style.display = "block";
+
+  const uploadAvatarForm = document.getElementById('uploadAvatarForm');
+  if (uploadAvatarForm)
+    uploadAvatarForm.style.display = "block";
+
 	const username = localStorage.getItem('username');
 	const userInfo = document.getElementById('userInfo');
 	const currentUsername = document.getElementById('currentUsername');
 	const changeForm = document.getElementById('changeUsernameForm');
   const passwordChangeBtn = document.getElementById('changePasswordBtn');
-
+  userM.loadAvatar();
 	if (username && userInfo && currentUsername && changeForm && passwordChangeBtn) {
 		userInfo.style.display = 'block';
 		changeForm.style.display = 'block';
@@ -149,6 +161,18 @@ export function updateUIForLoggedOutUser() {
   const chatLink = document.getElementById('chatLink');
 	if (chatLink)
     chatLink.style.display = 'none';
+
+   const avatarUser = document.getElementById('currentAvatar');
+  if (avatarUser)
+    avatarUser.style.display = "none";
+
+  const chooseAvatar = document.getElementById('chooseAvatar');
+  if (chooseAvatar)
+    chooseAvatar.style.display = "none";
+
+  const uploadAvatarForm = document.getElementById('uploadAvatarForm');
+  if (uploadAvatarForm)
+    uploadAvatarForm.style.display = "none";
 }
 
 export function logoutUser() {

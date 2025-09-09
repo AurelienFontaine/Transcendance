@@ -114,6 +114,16 @@ export function render() {
     	const logoutBtn = document.getElementById('logoutButton');
     	if (logoutBtn) 
         	logoutBtn.addEventListener('click', auth.logoutUser);
+
+		const avatars = ["Astro.jpg", "Croco.jpg"];
+		avatars.forEach(filename => {
+			const btnAvatar = document.getElementById(`choose${filename.split('.')[0]}`);
+			if (btnAvatar)
+				btnAvatar.addEventListener('click', () => userM.setDefaultAvatar(filename));
+		});
+		// const uploadAvatarForm = document.getElementById('uploadAvatarForm');
+		// if (uploadAvatarForm)
+		// 	uploadAvatarForm.style.display = "block";
     	setupProfilePage();
     }
 

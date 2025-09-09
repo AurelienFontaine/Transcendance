@@ -4,17 +4,55 @@ async function infoUser(fastify, options) {
 
     // Recuperer les infos user
     fastify.get('/me', {
-            preHandler: [fastify.authenticate]
+        preHandler: [fastify.authenticate]
         }, async (request, reply) => {
             const userId = request.user.id;
     
-            const user = db.prepare('SELECT id, name FROM users WHERE id = ?').get(userId);
-    
+            const user = db.prepare('SELECT * FROM users WHERE id = ?').get(userId);
+            
             if (!user) {
                 return reply.status(401).send({error: 'Utilisateur supprime ou inexistant.'});
             }
-            return { user: request.user };
+            return { user: request.user, userSQL : user }; //user = JWT donc uniquement les infos que contiennent le JWT alors que userSQL = tout ce que contient vraiment l'user dans la BDD
     });
+
+
+    // // FONCTION BACK :
+    // fastify.get('/user', {
+    //     preHandler: [fastify.authenticate]
+    //     },  async (request, reply) => {
+    //     const username  = request.query; //Ici si tu veux chercher l'user avec son username (changeable si tu veux chercher par id ou name)
+
+    //     const user = db.prepare('SELECT * FROM users WHERE username = ?').get(username); //Ici tu choppe l'user de la BDD avec TOUTES SES INFOS grace au get -> changeabe facilement
+
+    //     if (!user)
+    //         return (reply.status(401).send({error: 'User not found'}));
+    //     return { userSQL: user }; //on return l'user avec toutes ses infos pour le back.
+    // });
+
+    // // Fonction FRONT :
+    // export async function getUserByUsername(username: string) {
+    //     try {
+    //         // encoreURIComponent c'est pour proteger des caracteres speciaux
+    //         const response = await fetch(`http://localhost:3000/user?username=${encodeURIComponent(username)}`, {
+    //             method: "GET",
+    //             headers: {
+    //                 "Authorization": "Bearer " + localStorage.getItem("token")
+    //             }
+    //         });
+
+    //         if (!response.ok)
+    //             throw (new Error("Can't load profile"));
+            
+    //         const data = await response.json();
+    //         return (data.userSQL);
+    //         // const username = data.userSQL.username; //ca c'est le modele :)
+    //     } catch (err) {
+    //         console.error(err);
+    //     }
+    // }
+
+
 
     // Changer l'username de l'user connecte
     fastify.put('/me/username', {
@@ -49,7 +87,7 @@ async function infoUser(fastify, options) {
                     properties: { error: { type: 'string' } }
                 }
             }
-        } 
+        }
     }, async (request, reply) => {
             const userId = request.user.id;
             const { username } = request.body;

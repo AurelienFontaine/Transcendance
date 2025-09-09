@@ -11,21 +11,21 @@ export function renderProfile() {
 
       <!-- Avatar actuel -->
       <div class="mb-4 text-center">
-        <img id="currentAvatar" src="" alt="avatar" class="w-24 h-24 rounded-full mx-auto" />
+        <img id="currentAvatar" style="display:none, width: 100px; height: 100px; object-fit: cover; border-radius: 50%;" src="" alt="avatar" class="w-24 h-24 rounded-full mx-auto" />
       </div
 
       <!-- Choisir un avatar par défaut -->
-      <div class="flex justify-center gap-4 mb-4">
-        <button onclick="setDefaultAvatar('Croco.jpg')">
-          <img src="http://localhost:3000/images/Croco.jpg" class="w-16 h-16 rounded-full" />
+      <div id="chooseAvatar" class="flex justify-center gap-4 mb-4" style="display:none">
+        <button id="chooseCroco">
+          <img src="http://localhost:3000/images/Croco.jpg" style="width: 100px; height: 100px; object-fit: cover; border-radius: 50%;" class="w-16 h-16 rounded-full" />
         </button>
-        <button onclick="setDefaultAvatar('Astro.jpg')">
-          <img src="http://localhost:3000/images/Astro.jpg" class="w-16 h-16 rounded-full" />
+        <button id="chooseAstro">
+          <img src="http://localhost:3000/images/Astro.jpg" style="width: 100px; height: 100px; object-fit: cover; border-radius: 50%;" class="w-16 h-16 rounded-full" />
         </button>
       </div>
 
       <!-- Upload avatar -->
-      <form id="uploadAvatarForm">
+      <form id="uploadAvatarForm" style="display:none">
         <input type="file" name="avatar" accept="image/*" />
         <button type="submit">Uploader mon avatar</button>
       </form>

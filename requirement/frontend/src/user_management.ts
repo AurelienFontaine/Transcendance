@@ -99,12 +99,14 @@ export async function changePassword(event: Event) {
 // Gestion des images
 
 export async function setDefaultAvatar(filename: string) {
-  await fetch("http://localhost:3000/set-default-avatar", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: "Bearer" + localStorage.getItem("token") },
-    body: JSON.stringify({ avatar: filename }),
+  await fetch("http://localhost:3000/setDefaultAvatar", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json", Authorization: "Bearer " + localStorage.getItem("token") },
+    body: JSON.stringify({ avatar: filename })
   });
-  document.getElementById("currentAvatar")?.setAttribute("src", `${backendUrl}/images` + filename);
+  alert("On appelle setDefaultAvatar !" + filename);
+  // document.getElementById("currentAvatar")?.setAttribute("src", `${backendUrl}/images/${filename}`);
+  loadAvatar();
 }
 
 export async function loadAvatar() {
@@ -118,10 +120,11 @@ export async function loadAvatar() {
 		if (!response.ok)
 			throw (new Error("Can't load profile"));
 		const data = await response.json();
-		const avatarFile = data.user.avatar;
-		const avatarImg = document.getElementById("currentAvatar");
+		const avatarFile = data.userSQL.avatar; //nom du fichier image
+		const avatarImg = document.getElementById("currentAvatar") as HTMLImageElement;
 		if (avatarFile && avatarImg)
 			avatarImg.src = `http://localhost:3000/images/${avatarFile}`;
+    // alert("On va chercher les images a" + `http://localhost:3000/images/${avatarFile}`);
 	} catch (err) {
 		console.error(err);
 	}
