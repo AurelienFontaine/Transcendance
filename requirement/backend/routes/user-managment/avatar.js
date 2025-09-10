@@ -40,15 +40,6 @@ async function avatar(fastify, options) { // fonction multi route a exporter
     });
 
     // Mettre un avatar par defaut
-    fastify.post("/set-default-avatar", async (req, reply) => {
-        const { avatar } = req.body;
-        const allowed = ["Astro.jpg", "Croco.jpg"];
-
-        if (!allowed.includes(avatar))
-            return (reply.code(400).send({ error: "Invalid default avatar" }));
-        db.prepare("UPDATE users SET avatar = ? WHERE id = ?").run(avatar, req.user.id);
-        return { success: true, avatar };
-    });
 
     fastify.put("/setDefaultAvatar", {
         preHandler: [fastify.authenticate],
@@ -94,6 +85,57 @@ async function avatar(fastify, options) { // fonction multi route a exporter
             return (reply.status(400).send({ error: err.message }));
         }
     });
+
+	fastify.post("/uploadAvatar", {
+		preHandler: [fastify.authenticate],
+		schema: {
+            body: {
+                // type: 'object',
+				consumes: ["multipart/form-data"] //ici on recoit un fichier donc on peut pas le mettre en objet JSON -> On utilise multipart pour stocker l'image
+            },
+            response: {
+                200: {
+                    type: 'object',
+					properties: {
+						success: { type: boolean },
+						avatarUrl: { type: "string" }
+					}
+                },
+                400: {  //Erreur auto fastify
+                    type: 'object',
+                    properties: { error: { type: 'string' } }
+                },
+                401: { //Erreur manuelle ou BDD
+                    type: 'object',
+                    properties: { error: { type: 'string' } }
+                },
+                409: { //Erreur conflit logique souvent doublon ou autre
+                    type: 'object',
+                    properties: { error: { type: 'string' } }
+                }
+            }
+        }
+	}, async (request, reply) => {
+		const userId = request.user.id;
+
+		// Recuperation du fichier envoye
+		const data = await request.file();
+		if (!data)
+			return (reply.status(400).send({ error: "No file uploaded" }));
+
+		if (!data.mimetype.startsWith("image/"))
+			return (reply.status(400).send({ error: "Invalid file type" }));
+		// On renomme le fichier au nom de l'user pour eviter les doublons
+		const extension = path.extname(data.filename);
+		const newFilename = `avatar_${userId}${extension}`;
+		const filePath = path.join(__dirname, "..", "..", "data", "imgs", newFilename);
+		// Sauvegarde du fichier
+		await PureComponent(data.file, fs.createWriteStream(filePath));
+		// Mise a jour de la BDD
+		const db = fastify.db;
+		db.prepare("UPDATE users SET avatar = ? WHERE id = ?").run(newFilename, userId);
+		return { success: true, avatar: newFilename };
+	});
 }
 
 module.exports = avatar;

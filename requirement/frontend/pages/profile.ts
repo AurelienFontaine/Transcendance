@@ -11,7 +11,7 @@ export function renderProfile() {
 
       <!-- Avatar actuel -->
       <div class="mb-4 text-center">
-        <img id="currentAvatar" style="display:none, width: 100px; height: 100px; object-fit: cover; border-radius: 50%;" src="" alt="avatar" class="w-24 h-24 rounded-full mx-auto" />
+        <img id="currentAvatar" style="display:none; width: 100px; height: 100px; object-fit: cover; border-radius: 50%;" src="" alt="avatar" class="w-24 h-24 rounded-full mx-auto" />
       </div
 
       <!-- Choisir un avatar par défaut -->
@@ -34,7 +34,7 @@ export function renderProfile() {
       <form id="changeUsernameForm" style="display:none;" class="space-y-2 mt-4">
         <input id="newUsername" type="text" placeholder="Nouveau pseudo" class="w-full p-2 rounded bg-gray-700 text-white" required />
         <button type="submit" class="w-full bg-yellow-600 hover:bg-yellow-700 text-white p-2 rounded">Changer de pseudo</button>
-      </form>
+      </form>a
 
       <!-- Formulaire changement mdp -->
       <button id="changePasswordBtn" style="display:none;" class="space-y-2 mt-4">Changer mon mot de passe</button>
