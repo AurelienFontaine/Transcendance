@@ -26,6 +26,7 @@ destroy: clean
 	docker volume prune -f
 	docker system prune -a -f
 	rm -f requirement/backend/data/data.db
+	rm -f requirement/backend/data/imgs/avatar_*
 	docker system df
 
 log:

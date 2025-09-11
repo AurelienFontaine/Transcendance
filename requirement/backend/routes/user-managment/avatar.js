@@ -1,6 +1,7 @@
 const path = require('path');
 const fs = require('fs'); //filesystem
 const { prepare } = require('../database/database');
+const { pipeline } = require('stream/promises'); //fonction pipeline NATIF NODEJS qui gere les flux et return une promise -> ca gere les flux et return des erreurs. Une promise c'est un objet javascript qui represente une valeur pas encore dispo mais qui le sera dans le futur (utiles pour les operations asynchrones) On a 3 etapes : pending(en cours), fullfield(valide), rejected
 
 async function avatar(fastify, options) { // fonction multi route a exporter
     // Afficher une image
@@ -89,16 +90,12 @@ async function avatar(fastify, options) { // fonction multi route a exporter
 	fastify.post("/uploadAvatar", {
 		preHandler: [fastify.authenticate],
 		schema: {
-            body: {
-                // type: 'object',
-				consumes: ["multipart/form-data"] //ici on recoit un fichier donc on peut pas le mettre en objet JSON -> On utilise multipart pour stocker l'image
-            },
             response: {
                 200: {
                     type: 'object',
 					properties: {
-						success: { type: boolean },
-						avatarUrl: { type: "string" }
+						success: { type: 'boolean' },
+						avatarUrl: { type: 'string' }
 					}
                 },
                 400: {  //Erreur auto fastify
@@ -123,15 +120,15 @@ async function avatar(fastify, options) { // fonction multi route a exporter
 		if (!data)
 			return (reply.status(400).send({ error: "No file uploaded" }));
 
-		if (!data.mimetype.startsWith("image/"))
+		if (!data.mimetype.startsWith("image/")) //On verifie que le fichier est une image -> image/jpg image/png
 			return (reply.status(400).send({ error: "Invalid file type" }));
 		// On renomme le fichier au nom de l'user pour eviter les doublons
-		const extension = path.extname(data.filename);
-		const newFilename = `avatar_${userId}${extension}`;
+		const extension = path.extname(data.filename); //.png .jpg...
+		const newFilename = `avatar_${userId}${extension}`; //l'image sera maintenant idUser.extension -> 1.png / 1.jpg
 		const filePath = path.join(__dirname, "..", "..", "data", "imgs", newFilename);
-		// Sauvegarde du fichier
-		await PureComponent(data.file, fs.createWriteStream(filePath));
-		// Mise a jour de la BDD
+		
+		await pipeline(data.file, fs.createWriteStream(filePath)); //creer un fichier et redirige le flux data.file dans ce dernier (pump copie, createWriteStream creer le fichier)
+		
 		const db = fastify.db;
 		db.prepare("UPDATE users SET avatar = ? WHERE id = ?").run(newFilename, userId);
 		return { success: true, avatar: newFilename };

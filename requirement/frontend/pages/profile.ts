@@ -25,7 +25,7 @@ export function renderProfile() {
       </div>
 
       <!-- Upload avatar -->
-      <form id="uploadAvatarForm" style="display:none">
+      <form id="uploadAvatarForm" style="display:none" method="POST" enctype="multipart/form-data">
         <input type="file" name="avatar" accept="image/*" />
         <button type="submit">Uploader mon avatar</button>
       </form>
@@ -34,7 +34,7 @@ export function renderProfile() {
       <form id="changeUsernameForm" style="display:none;" class="space-y-2 mt-4">
         <input id="newUsername" type="text" placeholder="Nouveau pseudo" class="w-full p-2 rounded bg-gray-700 text-white" required />
         <button type="submit" class="w-full bg-yellow-600 hover:bg-yellow-700 text-white p-2 rounded">Changer de pseudo</button>
-      </form>a
+      </form>
 
       <!-- Formulaire changement mdp -->
       <button id="changePasswordBtn" style="display:none;" class="space-y-2 mt-4">Changer mon mot de passe</button>

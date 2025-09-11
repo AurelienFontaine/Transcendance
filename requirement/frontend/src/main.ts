@@ -117,9 +117,13 @@ export function render() {
 
 		const avatars = ["Astro.jpg", "Croco.jpg"];
 		avatars.forEach(filename => {
-			const btnAvatar = document.getElementById(`choose${filename.split('.')[0]}`);
-			if (btnAvatar)
-				btnAvatar.addEventListener('click', () => userM.setDefaultAvatar(filename));
+		const btnAvatar = document.getElementById(`choose${filename.split('.')[0]}`);
+		if (btnAvatar)
+			btnAvatar.addEventListener('click', () => userM.setDefaultAvatar(filename));
+		
+		const uploadAvatar = document.getElementById('uploadAvatarForm');
+		if (uploadAvatar)
+			uploadAvatar.addEventListener('submit', userM.uploadAvatar);
 		});
 		// const uploadAvatarForm = document.getElementById('uploadAvatarForm');
 		// if (uploadAvatarForm)

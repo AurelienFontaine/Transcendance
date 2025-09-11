@@ -123,10 +123,38 @@ export async function loadAvatar() {
 		const avatarFile = data.userSQL.avatar; //nom du fichier image
 		const avatarImg = document.getElementById("currentAvatar") as HTMLImageElement;
 		if (avatarFile && avatarImg)
-			avatarImg.src = `http://localhost:3000/images/${avatarFile}`;
+			avatarImg.src = `http://localhost:3000/images/${avatarFile}?t=${Date.now()}`;
     // alert("On va chercher les images a" + `http://localhost:3000/images/${avatarFile}`);
 	} catch (err) {
 		console.error(err);
 	}
 }
 
+export async function uploadAvatar(event: Event) {
+  event.preventDefault();
+  const form = event.currentTarget as HTMLFormElement;
+  const fileInput = form.querySelector("input[name='avatar']") as HTMLInputElement;
+  const avatarImg = document.getElementById("currentAvatar") as HTMLImageElement;
+  if (!fileInput)
+      return;
+
+  if (!fileInput.files || fileInput.files.length === 0)
+    return (alert("Please select a file"));
+  const file = fileInput.files[0]; //On prends le 0 car on autorise qu'un seul fichier -> file est un objet File JavaScript
+  const formData = new FormData(); //FormData est une classe du navigateur. Elle permet de creer facilement un body de requete multipart pour les images qui sera comprehensible par le back
+  formData.append("avatar", file); //sert a ajouter l'objet file sous le nom avatar dans la requete du back (formData)
+  try {
+    const response = await fetch(`${backendUrl}/uploadAvatar`, {
+    method: "POST",
+    headers: {Authorization: "Bearer " + localStorage.getItem("token")},
+    body: formData
+    });
+    if (!response.ok)
+      throw new Error("Upload has failed");
+    const data = await response.json();
+    // avatarImg.src = `${backendUrl}/images/${data.avatar}}`;
+    loadAvatar();
+  } catch (err) {
+    console.error("Error: upload avatar: ", err);
+  }
+}
