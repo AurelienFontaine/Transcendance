@@ -1,3 +1,4 @@
+import { apiBase } from "../src/utils";
 
 export async function chatHandler() {
 	//recup elements html dans DOM (cree par renderChat)
@@ -19,7 +20,7 @@ export async function chatHandler() {
 			const unfriendName = removeFriendNameInput.value.trim(); //recup txt dans formulaire + supp espaces av/ap
 			if (!unfriendName) return alert ("unable to unfriend: Nom invalide"); //si rien dans champ
 
-			const res = await fetch ("http://localhost:3000/friends/remove", {//env requette HTTP POST back
+			const res = await fetch (`${apiBase()}/friends/remove`, {//env requette HTTP POST back
 				method: "POST",
 				headers: {
 					Authorization: `Bearer ${localStorage.getItem("token")!}`,
@@ -44,7 +45,7 @@ export async function chatHandler() {
 			const friendName = friendNameInput.value.trim();
 			if (!friendName) return alert("unable to add friend: Nom invalide");
 
-			const res = await fetch("http://localhost:3000/friends/add", {
+			const res = await fetch(`${apiBase()}/friends/add`, {
 				method: "POST",
 				headers: {
 					Authorization: `Bearer ${localStorage.getItem("token")!}`,
@@ -120,7 +121,7 @@ async function fetchFriends(): Promise<{ id : number, name: string }[]> {
 	const token = localStorage.getItem("token");
 	if (!token) return [];
 
-	const res = await fetch("http://localhost:3000/friends", {
+	const res = await fetch(`${apiBase()}/friends`, {
 		headers: {
 			Authorization: `Bearer ${token}`
 		}

@@ -6,7 +6,7 @@ import { renderHome } from '../pages/home';
 import { renderProfile, setupProfilePage } from '../pages/profile';
 import { renderPlay, setupPlayPage } from '../pages/play';
 import { renderChoosePassword } from '../pages/choose-password';
-
+import { apiBase } from "./utils";
 import { navigate } from "./utils";
 
 import * as Game from '../handlers/game/game-front'; //present dans le docker via shared
@@ -32,6 +32,7 @@ const routes: Record<string, () => string> = {
 
 ///////// RENDER DE LA PAGE //////////////////////////////////////////
 
+
 // --- utils session ---
 function clearSessionStorage() {
   localStorage.removeItem("token");
@@ -46,7 +47,7 @@ async function refreshSession() {
   if (!token) return;
 
   try {
-    const res = await fetch("http://localhost:3000/me", {
+    const res = await fetch(`${apiBase()}/me`, {
       headers: { Authorization: `Bearer ${token}` }
     });
     if (!res.ok) {

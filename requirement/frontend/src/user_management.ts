@@ -1,4 +1,6 @@
-const backendUrl = "http://localhost:3000";
+import { apiBase } from "./utils";
+
+const backendUrl = `${apiBase()}`;
 
 import { navigate } from "./utils";
 

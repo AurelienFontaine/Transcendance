@@ -1,7 +1,7 @@
 // requirement/frontend/pages/play.ts
 import { Tournament } from "../handlers/game/tournament";
 import { __forceRender as forceGameRender, startLocalMatch, showBoardForTournament } from "../handlers/game/game-front";
-
+import { apiBase } from "../src/utils";
 
 let tournament: Tournament | null = null;
 
@@ -202,7 +202,7 @@ export function setupPlayPage() {
 
           const token = localStorage.getItem("token");
           if (token) {
-            fetch("http://localhost:3000/game/result", {
+            fetch(`${apiBase()}/game/result`, {
               method: "POST",
               headers: {
                 "Content-Type": "application/json",
@@ -220,7 +220,7 @@ export function setupPlayPage() {
 
   // --- Helpers stricts name-only ---
   async function fetchUserByNameStrict(name: string): Promise<Player | null> {
-    const res = await fetch(`http://localhost:3000/users/by-name/${encodeURIComponent(name.trim())}`);
+    const res = await fetch(`${apiBase()}/users/by-name/${encodeURIComponent(name.trim())}`);
     if (res.ok) {
       const data = await res.json();
       // Forcer le typage number + trim côté front (sécurité)
@@ -233,7 +233,7 @@ export function setupPlayPage() {
     throw new Error("Erreur serveur");
   }
   async function fetchUserByUsernameForHint(username: string): Promise<boolean> {
-    const res = await fetch(`http://localhost:3000/users/by-username/${encodeURIComponent(username)}`);
+    const res = await fetch(`${apiBase()}/users/by-username/${encodeURIComponent(username)}`);
     return res.ok;
   }
 

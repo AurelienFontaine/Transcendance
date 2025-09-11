@@ -8,6 +8,19 @@ console.log('✅ Server listening on ws://0.0.0.0:3010');
 let game = new PongGame();
 let clients: WebSocket[] = [];
 
+wss.on("connection", (ws) => {
+  console.log("Nouvelle connexion client");
+
+  ws.on("message", (msg) => {
+    console.log("Message reçu:", msg.toString());
+  });
+
+  ws.on("close", () => {
+    console.log("Client déconnecté");
+  });
+});
+
+
 wss.on('connection', (ws: WebSocket) => {
   if (clients.length >= 2) {
     ws.send(JSON.stringify({ type: 'error', message: 'Game full' }));
@@ -40,6 +53,21 @@ wss.on('connection', (ws: WebSocket) => {
       console.log('PAUSE THE GAME');
       game.Started = !game.Started;
      }
+     else if (data.type === "settings:set") {
+      if (typeof data.speedPercent === "number") {
+        console.log("🎚️ Speed changed to", data.speedPercent);
+        game.setSpeedPercent(data.speedPercent);
+      }
+      if (typeof data.ballColor === "string") {
+        console.log("🎨 Ball color changed to", data.ballColor);
+        game.ballColor = data.ballColor;
+      }
+      if (typeof data.paddleColor === "string") {
+        console.log("🎨 Paddle color changed to", data.paddleColor);
+        game.paddleColor = data.paddleColor;
+      }
+  }
+
   });
 
   ws.on('close', () => {
@@ -51,7 +79,12 @@ wss.on('connection', (ws: WebSocket) => {
 // Game loop
 setInterval(() => {
   game.update();
-  const state = JSON.stringify({ type: 'state', state: game.state, paused: !game.Started });
+  console.log("[STATE]", {
+  paused: game.paused,
+  started: game.Started,
+  players: clients.length
+});
+  const state = JSON.stringify({ type: 'state', state: game.state, paused: !game.Started, players: clients.length});
   for (const p of clients) {
     if (p && p.readyState === p.OPEN) {
       p.send(state);

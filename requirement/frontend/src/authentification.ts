@@ -1,8 +1,9 @@
-const backendUrl = "http://localhost:3000";
 
-import { navigate } from "./utils";
+import { navigate, apiBase } from "./utils";
 
 import * as userM from "./user_management";
+
+const backendUrl = `${apiBase()}`;
 
 function clearSessionStorage() {
   localStorage.removeItem("token");
@@ -24,7 +25,7 @@ export async function createUser(event: Event) {
   if (!passwordInput) return alert("Champ mot de passe introuvable");
   const password = passwordInput.value;
 
-  const backendUrl = "http://localhost:3000";
+  const backendUrl = `${apiBase()}`;
 
   const response = await fetch(`${backendUrl}/register`, {
     method: "POST",

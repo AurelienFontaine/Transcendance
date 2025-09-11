@@ -1,4 +1,6 @@
 // pages/profile.ts
+import { apiBase } from "../src/utils";
+
 export function renderProfile() {
   return `
     <div class="max-w-md mx-auto mt-8 p-6 bg-gray-800 rounded-lg shadow-md">
@@ -39,7 +41,7 @@ export function renderProfile() {
       </form>
 
       <!-- Auth Google -->
-      <a id="googleLoginButton" href="http://localhost:3000/auth/google">
+      <a id="googleLoginButton" href="${apiBase()}/auth/google">
         <button style="padding: 10px 20px; background-color: #4285F4; color: white; border: none; border-radius: 5px;">Se connecter avec Google</button>
       </a>
 
@@ -84,7 +86,7 @@ export function setupProfilePage() {
 
   // Charger l’historique
   historyDiv.innerHTML = `<span class="text-gray-300">Chargement…</span>`;
-  fetch(`http://localhost:3000/users/${encodeURIComponent(realName)}/history`, {
+  fetch(`${apiBase()}/users/${encodeURIComponent(realName)}/history`, {
     headers: { Authorization: `Bearer ${token}` }
   })
     .then((res) => {
