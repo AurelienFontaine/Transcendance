@@ -123,9 +123,9 @@ export function render() {
   requestAnimationFrame(() => { //attends le prochain refresh d'ecran
     
     if (path === '/choose-password') {
-		  const newPassword = document.getElementById("changePasswordForm") as HTMLFormElement;
-      if (newPassword)
-        newPassword.addEventListener('submit', userM.changePassword);
+		const newPassword = document.getElementById("changePasswordForm") as HTMLFormElement;
+		if (newPassword)
+        	newPassword.addEventListener('submit', userM.changePassword);
 	  }
   
     if (path === '/play') {
@@ -135,39 +135,50 @@ export function render() {
     }
 
     if (path === '/profile') {
-		  const hasToken = ! !localStorage.getItem('token');
-      
-      
-      const currentUsernameDOM = document.getElementById('currentUsername');
-      if (currentUsernameDOM)
-        currentUsernameDOM.textContent = username;
-      const googleBtn = document.getElementById('googleLoginButton');
+		const hasToken = ! !localStorage.getItem('token');
 
-      setupProfilePage();
+	    const currentUsernameDOM = document.getElementById('currentUsername');
+    	if (currentUsernameDOM)
+        	currentUsernameDOM.textContent = username;
+		
+    	const googleBtn = document.getElementById('googleLoginButton');
+		if (googleBtn)
+			googleBtn.style.display = hasToken ? 'none' : 'block';
 
-		  if (googleBtn)
-			  googleBtn.style.display = hasToken ? 'none' : 'block';
-
-      const registerForm = document.getElementById('registerForm');
+    	const registerForm = document.getElementById('registerForm');
     	if (registerForm)
-        registerForm.addEventListener('submit', auth.createUser);
+        	registerForm.addEventListener('submit', auth.createUser);
 
     	const loginForm = document.getElementById('loginForm');
-      if (loginForm)
-        loginForm.addEventListener('submit', auth.loginUser);
+    	if (loginForm)
+        	loginForm.addEventListener('submit', auth.loginUser);
 
-      const changeUsernameForm = document.getElementById('changeUsernameForm') as HTMLFormElement;
-      if (changeUsernameForm)
-        changeUsernameForm.addEventListener('submit', userM.changeUsername);
+    	const changeUsernameForm = document.getElementById('changeUsernameForm') as HTMLFormElement;
+    	if (changeUsernameForm)
+        	changeUsernameForm.addEventListener('submit', userM.changeUsername);
 
-      const changePasswordButton = document.getElementById("changePasswordBtn");
-      if (changePasswordButton)
-        changePasswordButton.addEventListener('click', () => { navigate('/choose-password'); });
+    	const changePasswordButton = document.getElementById("changePasswordBtn");
+    	if (changePasswordButton)
+        	changePasswordButton.addEventListener('click', () => { navigate('/choose-password'); });
 
-      const logoutBtn = document.getElementById('logoutButton');
-      if (logoutBtn) 
-        logoutBtn.addEventListener('click', auth.logoutUser);
-      setupProfilePage();
+    	const logoutBtn = document.getElementById('logoutButton');
+    	if (logoutBtn) 
+        	logoutBtn.addEventListener('click', auth.logoutUser);
+
+		const avatars = ["Astro.jpg", "Croco.jpg"];
+		avatars.forEach(filename => {
+		const btnAvatar = document.getElementById(`choose${filename.split('.')[0]}`);
+		if (btnAvatar)
+			btnAvatar.addEventListener('click', () => userM.setDefaultAvatar(filename));
+		
+		const uploadAvatar = document.getElementById('uploadAvatarForm');
+		if (uploadAvatar)
+			uploadAvatar.addEventListener('submit', userM.uploadAvatar);
+		});
+		// const uploadAvatarForm = document.getElementById('uploadAvatarForm');
+		// if (uploadAvatarForm)
+		// 	uploadAvatarForm.style.display = "block";
+    	setupProfilePage();
     }
 
     if (path == '/chat'){

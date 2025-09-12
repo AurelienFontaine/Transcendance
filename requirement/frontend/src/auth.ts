@@ -1,18 +1,10 @@
-import { navigate, apiBase } from "./utils";
+const backendUrl = "http://localhost:3000";
+
+import { navigate } from "./utils";
 
 import * as userM from "./user_management";
 
-const backendUrl = `${apiBase()}`;
-
-function clearSessionStorage() {
-  localStorage.removeItem("token");
-  localStorage.removeItem("id");
-  localStorage.removeItem("name");
-  localStorage.removeItem("username");
-}
-
 export async function createUser(event: Event) {
-  
   event.preventDefault(); //empeche le rechargement de la page
   //recuperation des champs du formulaire
   const nameInput = document.getElementById("registerName") as HTMLInputElement | null;
@@ -25,7 +17,7 @@ export async function createUser(event: Event) {
   if (!passwordInput) return alert("Champ mot de passe introuvable");
   const password = passwordInput.value;
 
-  const backendUrl = `${apiBase()}`;
+  const backendUrl = "http://localhost:3000";
 
   const response = await fetch(`${backendUrl}/register`, {
     method: "POST",
@@ -40,8 +32,6 @@ export async function createUser(event: Event) {
   if (data.token) { //gestion du log cote client
     localStorage.setItem('token', data.token);
     localStorage.setItem('username', data.username);
-    localStorage.setItem('name', data.name);
-    localStorage.setItem('id', String(data.id));
 	navigate("/profile");
   }
   else {
@@ -56,30 +46,25 @@ export async function loginUser(event: Event) {
   const name = nameInput.value;
   const password = passwordInput.value;
 
-  const response = await fetch(`${backendUrl}/login`, {
+  const response = await fetch (`${backendUrl}/login`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ name, password }),
+    body: JSON.stringify({name, password}),
   });
 
+  // Recuperation & stockage en local (client) des donnees USER + refresh la page
   const data = await response.json();
-
-  if (response.ok && data.token) {
-    localStorage.setItem("token", data.token);
-    if (data.username) 
-      localStorage.setItem("username", data.username);
-    if (data.name) 
-      localStorage.setItem("name", data.name);
-    if (data.id)
-      localStorage.setItem("id", String(data.id));
-    navigate("/profile"); // refresh l'UI
+  if (data.token && data.username) { //gestion du log cote client si login reussi
+    localStorage.setItem('token', data.token); //stock JWT
+    localStorage.setItem('username', data.username); 
+	  navigate("/profile"); // force le refresh pour mettre a jour l'UI
   } else {
-    alert("Erreur : " + (data.error || "Connexion échouée"));
+    alert("Erreur : " + (data.error || "Connexion echouee"));
   }
+  // alert(JSON.stringify(data)); //pour print la data de connexion
 }
-
 
 
 export function updateUIForLoggedInUser() {  
@@ -135,6 +120,7 @@ export function updateUIForLoggedInUser() {
 	}
 }
 
+
 export async function checkIfLoggedIn() {
   await tokenCheck(); //verif la validite du token en back
   const token = localStorage.getItem('token');
@@ -189,26 +175,12 @@ export function updateUIForLoggedOutUser() {
     uploadAvatarForm.style.display = "none";
 }
 
-export function logoutUser(e?: Event) {
-  if (e) e.preventDefault();
-  clearSessionStorage();
-  navigate('/profile');
-  window.location.pathname === '/profile' && (window.location.reload());
-
-  clearSessionStorage();
-
-  // 2) Nettoyage immédiat de l’UI si on est déjà sur /profile
-  const historyDiv  = document.getElementById('historyContent');
-  const showWelcome = document.getElementById('showWelcome');
-  const logoutBtn   = document.getElementById('logoutButton');
-  if (historyDiv)  historyDiv.innerHTML = `<em class="text-gray-400">Connectez-vous pour voir votre historique.</em>`;
-  if (showWelcome) { showWelcome.classList.add('hidden'); showWelcome.textContent = ''; }
-  if (logoutBtn)   logoutBtn.classList.add('hidden');
-
-  // 3) Forcer un re-render même si on reste sur /profile
-  window.history.replaceState({}, '', '/profile');
-  window.dispatchEvent(new PopStateEvent('popstate'));
- }
+export function logoutUser() {
+  localStorage.removeItem('token');
+  localStorage.removeItem('username');
+  updateUIForLoggedOutUser();
+  navigate('/profile'); //refresh de la page
+}
 
 export async function tokenCheck() {
   const token = localStorage.getItem('token');

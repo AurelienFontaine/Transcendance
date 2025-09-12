@@ -11,6 +11,27 @@ export function renderProfile() {
         <p><strong>Bienvenue </strong> <span id="currentUsername"></span> !</p>
       </div>
 
+      <!-- Avatar actuel -->
+      <div class="mb-4 text-center">
+        <img id="currentAvatar" style="display:none; width: 100px; height: 100px; object-fit: cover; border-radius: 50%;" src="" alt="avatar" class="w-24 h-24 rounded-full mx-auto" />
+      </div
+
+      <!-- Choisir un avatar par défaut -->
+      <div id="chooseAvatar" class="flex justify-center gap-4 mb-4" style="display:none">
+        <button id="chooseCroco">
+          <img src="http://localhost:3000/images/Croco.jpg" style="width: 100px; height: 100px; object-fit: cover; border-radius: 50%;" class="w-16 h-16 rounded-full" />
+        </button>
+        <button id="chooseAstro">
+          <img src="http://localhost:3000/images/Astro.jpg" style="width: 100px; height: 100px; object-fit: cover; border-radius: 50%;" class="w-16 h-16 rounded-full" />
+        </button>
+      </div>
+
+      <!-- Upload avatar -->
+      <form id="uploadAvatarForm" style="display:none" method="POST" enctype="multipart/form-data">
+        <input type="file" name="avatar" accept="image/*" />
+        <button type="submit">Uploader mon avatar</button>
+      </form>
+
       <!-- Formulaire changement pseudo -->
       <form id="changeUsernameForm" style="display:none;" class="space-y-2 mt-4">
         <input id="newUsername" type="text" placeholder="Nouveau pseudo" class="w-full p-2 rounded bg-gray-700 text-white" required />
