@@ -21,12 +21,19 @@ export type StateMessage = {
   paused: boolean;
 };
 
-export type ServerMessage = InputMessage | ResetMessage | StartMessage | PauseMessage | StateMessage;
+export type ServerMessage = InputMessage | ResetMessage | StartMessage | PauseMessage | StateMessage | SettingsMessage;
 
 export type GameState = {
   ball: { x: number; y: number };
   paddles: { p1: number; p2: number };
   score: { p1: number; p2: number };
+  ballColor?: string;
+  paddleColor?: string;
+};
+
+export type SettingsMessage = {
+  type: 'settings:set';
+  speedPercent?: number;
   ballColor?: string;
   paddleColor?: string;
 };
