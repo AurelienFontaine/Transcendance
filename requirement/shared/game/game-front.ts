@@ -206,7 +206,14 @@ export function startOnlineGame() {
 
   if (msg.type === "player") {
     playerIndex = msg.playerIndex;
-  } else if (msg.type === "state") {
+    console.log(`Assigné à la room ${msg.roomId} en tant que Player ${msg.playerIndex}`);
+  }
+  else if (msg.type === "error" && ws != null) {
+    alert(msg.message || "Connexion refusée : toutes les salles sont pleines.");
+    ws.close();
+    return;
+  }
+  else if (msg.type === "state") {
     latestState = msg.state;
     isPaused = msg.paused;
     if (pause) pause.textContent = isPaused ? "Play" : "Pause";

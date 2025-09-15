@@ -5,91 +5,135 @@ import { ServerMessage } from './game/types';
 const wss = new WebSocketServer({ port: 3010, host: '0.0.0.0' });
 console.log('✅ Server listening on ws://0.0.0.0:3010');
 
-let game = new PongGame();
-let clients: WebSocket[] = [];
+interface Room {
+  id: number;
+  clients: WebSocket[];
+  game: PongGame;
+}
 
-// Nouvelle connexion
+let rooms: Room[] = [];
+let nextRoomId = 1;
+const MAX_ROOMS = 4;
+
+// --- Helpers ---
+function broadcast(room: Room, msg: any) {
+  const data = JSON.stringify(msg);
+  room.clients.forEach(client => {
+    if (client.readyState === WebSocket.OPEN) {
+      client.send(data);
+    }
+  });
+}
+
+function removeFromRoom(ws: WebSocket, room: Room) {
+  room.clients = room.clients.filter(c => c !== ws);
+
+  if (room.clients.length === 0) {
+    rooms = rooms.filter(r => r !== room);
+    console.log(`🗑️ Room ${room.id} supprimée`);
+  } else {
+    console.log(`Room ${room.id} en attente (${room.clients.length}/2)`);
+  }
+}
+
+function assignToRoom(ws: WebSocket): { room: Room; playerIndex: number } | null {
+  // Essayer une room avec <2 joueurs
+  let room = rooms.find(r => r.clients.length < 2);
+
+  if (!room) {
+    // Si toutes les rooms sont créées et pleines → refus
+    if (rooms.length >= MAX_ROOMS) {
+      return null;
+    }
+
+    // Créer une nouvelle room
+    room = {
+      id: nextRoomId++,
+      clients: [],
+      game: new PongGame(),
+    };
+    rooms.push(room);
+    console.log(`🆕 Nouvelle room créée: ${room.id}`);
+  }
+
+  room.clients.push(ws);
+  const playerIndex = room.clients.length - 1;
+  console.log(`🎮 Client ajouté à la room ${room.id} en tant que Player ${playerIndex + 1}`);
+
+  return { room, playerIndex };
+}
+
+// --- Connexion ---
 wss.on("connection", (ws) => {
-  if (clients.length >= 2) {
-    ws.send(JSON.stringify({ type: 'error', message: 'Game full' }));
+  const result = assignToRoom(ws);
+
+  if (!result) {
+    // Refuser connexion car toutes les rooms sont pleines
+    const msg = { type: 'error', message: 'Toutes les salles sont complètes. Veuillez attendre qu’une room se libère.' };
+    ws.send(JSON.stringify(msg));
     ws.close();
+    console.warn("⛔ Connexion refusée : toutes les rooms pleines.");
     return;
   }
 
-  const playerIndex = clients.length;
-  clients.push(ws);
+  const { room, playerIndex } = result;
 
-  ws.send(JSON.stringify({ type: 'player', playerIndex }));
-  console.log(`🎮 Player ${playerIndex + 1} connected (total=${clients.length})`);
+  // Informer le client de son rôle
+  ws.send(JSON.stringify({ type: 'player', playerIndex, roomId: room.id }));
 
   ws.on("message", (msg) => {
-    console.log("📩 Message brut reçu:", msg.toString());
-
     const data = JSON.parse(msg.toString()) as ServerMessage;
 
     if (data.type === 'input') {
-      if (playerIndex === 0) game.p1Dir = data.direction;
-      else if (playerIndex === 1) game.p2Dir = data.direction;
+      if (playerIndex === 0) room.game.p1Dir = data.direction;
+      else if (playerIndex === 1) room.game.p2Dir = data.direction;
+
     } else if (data.type === 'reset') {
-      console.log('🔄 RESET THE GAME');
-      game = new PongGame();
-      game.resetBall();
-      game.Started = false;
+      console.log(`🔄 RESET room ${room.id}`);
+      room.game = new PongGame();
+
     } else if (data.type === 'start') {
-      console.log('▶️ START THE GAME');
-      game.resetBall();
-      game.Started = true;
+      console.log(`▶️ START room ${room.id}`);
+      room.game.resetBall();
+      room.game.Started = true;
+
     } else if (data.type === 'pause') {
-      console.log('⏸️ TOGGLE PAUSE (avant=', game.Started, ')');
-      game.Started = !game.Started;
+      console.log(`⏸️ PAUSE room ${room.id}`);
+      room.game.Started = !room.game.Started;
+
     } else if (data.type === "settings:set") {
       if (typeof data.speedPercent === "number") {
-        console.log("🎚️ Speed changed to", data.speedPercent);
-        game.setSpeedPercent(data.speedPercent);
+        console.log(`🎚️ Room ${room.id} Speed -> ${data.speedPercent}`);
+        room.game.setSpeedPercent(data.speedPercent);
       }
       if (typeof data.ballColor === "string") {
-        console.log("🎨 Ball color changed to", data.ballColor);
-        game.ballColor = data.ballColor;
+        room.game.ballColor = data.ballColor;
       }
       if (typeof data.paddleColor === "string") {
-        console.log("🎨 Paddle color changed to", data.paddleColor);
-        game.paddleColor = data.paddleColor;
+        room.game.paddleColor = data.paddleColor;
       }
     }
   });
 
   ws.on("close", () => {
-    clients = clients.filter(c => c !== ws);
-    console.log(`❌ Player ${playerIndex + 1} disconnected (total=${clients.length})`);
+    console.log(`❌ Player ${playerIndex + 1} quitté room ${room.id}`);
+    removeFromRoom(ws, room);
   });
 });
 
-// Game loop
+// --- Game loop ---
 setInterval(() => {
-  game.update();
+  for (const room of rooms) {
+    room.game.update();
 
-  // Log résumé toutes les secondes
-  const now = new Date();
-  if (now.getSeconds() % 1 === 0 && now.getMilliseconds() < 20) {
-    console.log("[STATE]", {
-      started: game.Started,
-      paused: !game.Started,
-      players: clients.length,
-      ball: game.state.ball,
-      score: game.state.score
-    });
-  }
+    const state = {
+      type: 'state',
+      state: room.game.state,
+      paused: !room.game.Started,
+      players: room.clients.length,
+      roomId: room.id,
+    };
 
-  const state = JSON.stringify({
-    type: 'state',
-    state: game.state,
-    paused: !game.Started,
-    players: clients.length
-  });
-
-  for (const p of clients) {
-    if (p && p.readyState === p.OPEN) {
-      p.send(state);
-    }
+    broadcast(room, state);
   }
 }, 1000 / 60);
