@@ -1,7 +1,7 @@
 // requirement/frontend/pages/play.ts
 import { Tournament } from "../handlers/game/tournament";
 import { __forceRender as forceGameRender, startLocalMatch, showBoardForTournament } from "../handlers/game/game-front";
-import { apiBase } from "../src/utils";
+import { apiBase, getCurrentUser } from "../src/utils";
 
 let tournament: Tournament | null = null;
 
@@ -80,8 +80,14 @@ export function renderPlay() {
   `;
 }
 
+const token = localStorage.getItem("token");
+const myId = localStorage.getItem("id");
+const rawUsername = localStorage.getItem("username");
+const rawName = localStorage.getItem("name");
 /** Idempotent: appelé par main.ts après render() quand path === '/play' */
-export function setupPlayPage() {
+export async function setupPlayPage() {
+  console.log("DEBUG tournament init", {token, myId, rawUsername, rawName});
+  
   const $ = (id: string) => document.getElementById(id)!;
   const show = (el: HTMLElement) => el.classList.remove("hidden");
   const hide = (el: HTMLElement) => el.classList.add("hidden");
@@ -95,16 +101,21 @@ export function setupPlayPage() {
   let currentMatch: { p1: Player; p2: Player } | null = null;
   const players: Player[] = [];
   
-  const token = localStorage.getItem("token");
-  const myId = localStorage.getItem("id");
-  const rawUsername = localStorage.getItem("username");
-  const rawName = localStorage.getItem("name");
   
   let displaySelf: Player | null = null;
-
+  
   // let selfPlayer: Player | null = null;
   if (token && myId && rawName) {
     displaySelf = { id: parseInt(myId, 10), name: rawName, display: rawUsername || rawName };
+    players.push(displaySelf);
+  }
+  const me = await getCurrentUser();
+  if (me) {
+    displaySelf = {
+      id: Number(me.id),
+      name: me.name,
+      display: me.username || me.name,
+    };
     players.push(displaySelf);
   }
   // ========== Navigation (Local / Online / Sous-menu) ==========

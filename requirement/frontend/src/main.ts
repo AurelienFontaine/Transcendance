@@ -131,7 +131,7 @@ export function render() {
     if (path === '/play') {
     // 1) Wire the tournament UI (register players, start tournament, scoring)
     //    This function should be idempotent (won’t double-attach on re-render).
-      setupPlayPage();
+      setupPlayPage().catch(err => console.error(err));
     }
 
     if (path === '/profile') {
