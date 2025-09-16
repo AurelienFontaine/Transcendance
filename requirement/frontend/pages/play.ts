@@ -103,6 +103,7 @@ async function ensureToken(): Promise<string | null> {
   const rawName = localStorage.getItem("name");
   /** Appelé par main.ts après render() quand path === '/play' */
   export async function setupPlayPage() {
+    console.log('[PLAY] setupPlayPage start. path=', location.pathname);
     console.log("DEBUG tournament init", {token, myId, rawUsername, rawName});
     
     const $ = (id: string) => document.getElementById(id)!;
@@ -355,4 +356,8 @@ async function ensureToken(): Promise<string | null> {
   };
 
   refreshPlayers();
+  console.log('[PLAY] modeChoice hidden?', document.getElementById('modeChoice')?.classList.contains('hidden'));
+  console.log('[PLAY] localSubmenu hidden?', document.getElementById('localSubmenu')?.classList.contains('hidden'));
+  console.log('[PLAY] tournamentPanel hidden?', document.getElementById('tournamentPanel')?.classList.contains('hidden'));
+  console.log('[PLAY] setupPlayPage end.');
 }
