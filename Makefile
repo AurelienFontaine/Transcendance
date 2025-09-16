@@ -2,9 +2,15 @@ COMPOSE_PATH=requirement/docker-compose.yml
 
 all:
 	docker compose -f $(COMPOSE_PATH) up -d --build
+	@echo ""
+	@echo "🌍 Adresse IP locale pour accéder au serveur :"
+	@echo "http://$$(hostname -I | awk '{for(i=1;i<=NF;i++) if ($$i ~ /^192\.168\.|^10\.|^172\./) {print $$i; exit}}'):8080"
 
 debug:
 	docker compose -f $(COMPOSE_PATH) up --build --watch
+	@echo ""
+	@echo "Adresse IP locale pour accéder au serveur :"
+	@echo "http://$$(hostname -I | awk '{for(i=1;i<=NF;i++) if ($$i ~ /^192\.168\.|^10\.|^172\./) {print $$i; exit}}'):8080"
 
 start:
 	docker compose -f $(COMPOSE_PATH) start
@@ -19,6 +25,10 @@ fclean: clean
 
 re:
 	docker compose -f $(COMPOSE_PATH) up -d --force-recreate --build
+	@echo ""
+	@echo "Adresse IP locale pour accéder au serveur :"
+	@echo "http://$$(hostname -I | awk '{for(i=1;i<=NF;i++) if ($$i ~ /^192\.168\.|^10\.|^172\./) {print $$i; exit}}'):8080"
+
 
 destroy: clean
 	docker container prune -f
@@ -51,5 +61,9 @@ tab:
 	@docker exec -it backend_container sh -c "sqlite3 data/data.db '.mode box' '.headers on' 'SELECT * FROM friends;'"
 	@docker exec -it backend_container sh -c "sqlite3 data/data.db '.mode box' '.headers on' 'SELECT * FROM games;'"
 	@docker exec -it backend_container sh -c "sqlite3 data/data.db '.mode box' '.headers on' 'SELECT * FROM server;'"
+
+ip:
+	@echo "Adresse IP locale pour accéder au serveur :"
+	@echo "http://$$(hostname -I | awk '{for(i=1;i<=NF;i++) if ($$i ~ /^192\.168\.|^10\.|^172\./) {print $$i; exit}}'):8080"
 
 .PHONY: all debug start stop clean fclean re destroy log ls tab

@@ -66,22 +66,78 @@ export function renderProfile() {
         <button style="padding: 10px 20px; background-color: #4285F4; color: white; border: none; border-radius: 5px;">Se connecter avec Google</button>
       </a>
 
-      <!-- Historique des matchs : -->
-      <div>
-        <h2 class="text-xl font-semibold mb-3">Historique des matchs : </h2>
-        <div id="historyContent" class="space-y-4"></div>
+      <!-- Boutons pour afficher stats / historique -->
+      <div class="flex justify-center gap-4 mt-6">
+        <button id="showStatsBtn" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded">
+          Voir mes stats
+        </button>
+        <button id="showHistoryBtn" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded">
+          Voir mon historique
+        </button>
       </div>
-    </div>
+
+      <!-- Conteneurs masqués -->
+      <div id="statsContent" class="mt-4 hidden"></div>
+      <div id="historyContent" class="mt-4 hidden space-y-4"></div>
   `;
 }
 
-export function setupProfilePage() {
-  const historyDiv = document.getElementById('historyContent');
+async function ensureUserInfo() {
+  const token = localStorage.getItem('token');
+  if (!token) return null;
+
+  // Si déjà présent → inutile de re-fetch
+  const name = localStorage.getItem('name');
+  if (name) {
+    return {
+      id: localStorage.getItem('id'),
+      name,
+      username: localStorage.getItem('username')
+    };
+  }
+
+  try {
+    const res = await fetch(`${apiBase()}/me`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+
+    const data = await res.json();
+    const user = data.user ?? data;
+
+    localStorage.setItem("id", String(user.id || ""));
+    localStorage.setItem("name", user.name || "");
+    localStorage.setItem("username", user.username || user.name || "");
+
+    return user;
+  } catch (err) {
+    console.error("Erreur fetch /me", err);
+    return null;
+  }
+}
+
+
+export async function setupProfilePage() {
+  const statsDiv = document.getElementById('statsContent') as HTMLElement | null;
+  const historyDiv = document.getElementById('historyContent') as HTMLElement | null;
+  const statsBtn = document.getElementById('showStatsBtn') as HTMLButtonElement | null;
+  const historyBtn = document.getElementById('showHistoryBtn') as HTMLButtonElement | null;
+
+  if (!statsDiv || !historyDiv || !statsBtn || !historyBtn) return;
+  const token = localStorage.getItem('token');
+  if (!token) {
+    historyDiv.innerHTML = `<em class="text-gray-400">Connectez-vous pour voir votre historique.</em>`;
+    return;
+  }
+  const user = await ensureUserInfo();
+  if (!user) {
+    historyDiv.innerHTML = `<em class="text-gray-400">Erreur chargement utilisateur.</em>`;
+    return;
+  }
+
   const showWelcome = document.getElementById('showWelcome') as HTMLElement | null;
   const logoutBtn = document.getElementById('logoutButton') as HTMLButtonElement | null;
-  if (!historyDiv) return;
 
-  const token = localStorage.getItem('token');
   const realName = (localStorage.getItem('name') || '').trim();
   const username = (localStorage.getItem('username') || realName).trim();
 
@@ -121,6 +177,43 @@ export function setupProfilePage() {
         return;
       }
 
+      let wins = 0, losses = 0;
+      let pointsGagnes = 0, pointsPris = 0;
+
+      matches.forEach((m: any) => {
+        const isVictory = m.result === "W";
+        if (isVictory) {
+          wins++;
+          pointsGagnes += 5;
+          pointsPris += m.oppScore;
+        } else {
+          losses++;
+          pointsGagnes += m.myScore;
+          pointsPris += 5;
+        }
+      });
+
+      const ppmPris =  (pointsPris / (wins + losses)).toFixed(2);
+      const ppmMarque = (pointsGagnes / (wins + losses)).toFixed(2);
+      const ratioPris = (pointsPris / (pointsPris + pointsGagnes) * 100).toFixed(2);
+      const ratioMarque = (pointsGagnes / (pointsPris + pointsGagnes) * 100).toFixed(2);
+      const ratioWin = losses === 0 ? wins : ((wins / (losses + wins)) * 100).toFixed(2);
+
+      statsDiv.innerHTML = `
+        <div class="px-3 py-2 bg-gray-700 text-white rounded-lg shadow space-y-1">
+          <div class="text-sm"><strong>Wins:</strong> ${wins} | 
+            <strong>Loses:</strong> ${losses} | 
+            <strong>Ratio:</strong> ${ratioWin}%
+          </div>
+          <div class="text-sm"><strong>Points gagnés:</strong> ${pointsGagnes} | 
+            <strong>Points perdus:</strong> ${pointsPris}</div>
+          <div class="text-sm"><strong>% points marqués :</strong> ${ratioMarque}% | 
+            <strong>% points pris :</strong> ${ratioPris}%</div>
+          <div class="text-sm"><strong>Moy. points marqués :</strong> ${ppmMarque} | 
+            <strong>Moy. points pris :</strong> ${ppmPris}</div>
+        </div>
+      `;
+
       const last10 = [...matches]
         .sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime())
         .slice(0, 10);
@@ -155,6 +248,17 @@ export function setupProfilePage() {
     .catch((err) => {
       console.error(err);
       historyDiv.innerHTML = `<span class="text-red-400">Erreur de chargement de l’historique.</span>`;
+    });
+
+    // Affichage Historique et Stats
+    statsBtn.addEventListener("click", () => {
+      const hidden = statsDiv.classList.toggle("hidden");
+      statsBtn.textContent = hidden ? "Voir mes stats" : "Cacher mes stats";
+    });
+
+    historyBtn.addEventListener("click", () => {
+      const hidden = historyDiv.classList.toggle("hidden");
+      historyBtn.textContent = hidden ? "Voir mon historique" : "Cacher mon historique";
     });
 }
 

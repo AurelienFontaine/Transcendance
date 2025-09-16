@@ -13,9 +13,10 @@ export function renderPlay() {
   <section id="modeChoice" class="w-full max-w-3xl mb-8 text-center">
   <h2 class="mb-3">Choisissez un mode de jeu</h2>
   <div class="flex gap-3 justify-center">
-  <button id="localBtn"  class="bg-gray-700 px-4 py-2 rounded">2 joueurs sur 1 PC</button>
-  <button id="onlineBtn" class="bg-gray-700 px-4 py-2 rounded">2 joueurs en ligne</button>
+    <button id="localBtn"  class="bg-gray-700 px-4 py-2 rounded">2 joueurs sur 1 PC</button>
+    <button id="onlineBtn" class="bg-gray-700 px-4 py-2 rounded">2 joueurs en ligne</button>
   </div>
+  <div id="playAlert" class="hidden mt-4 text-red-400 font-semibold"></div>
   </section>
   
   <!-- === Section 2 : sous-menu local === -->
@@ -80,77 +81,124 @@ export function renderPlay() {
   `;
 }
 
-const token = localStorage.getItem("token");
-const myId = localStorage.getItem("id");
-const rawUsername = localStorage.getItem("username");
-const rawName = localStorage.getItem("name");
-/** Idempotent: appelé par main.ts après render() quand path === '/play' */
-export async function setupPlayPage() {
-  console.log("DEBUG tournament init", {token, myId, rawUsername, rawName});
-  
-  const $ = (id: string) => document.getElementById(id)!;
-  const show = (el: HTMLElement) => el.classList.remove("hidden");
-  const hide = (el: HTMLElement) => el.classList.add("hidden");
-  
-  const modeChoice      = $("modeChoice");
-  const localSubmenu    = $("localSubmenu");
-  const tournamentPanel = $("tournamentPanel");
-  
-  // État tournoi
-  type Player = { id: number; name: string; display: string };
-  let currentMatch: { p1: Player; p2: Player } | null = null;
-  const players: Player[] = [];
-  
-  
-  let displaySelf: Player | null = null;
-  
-  // let selfPlayer: Player | null = null;
-  if (token && myId && rawName) {
-    displaySelf = { id: parseInt(myId, 10), name: rawName, display: rawUsername || rawName };
-    players.push(displaySelf);
+async function ensureToken(): Promise<string | null> {
+    const token = localStorage.getItem("token");
+    if (!token) 
+      return null;
+    try {
+      const res = await fetch(`${apiBase()}/me`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) 
+        return token; // token valide
+    } catch (e) {
+      console.warn("Vérification du token échouée", e);
+    }
+    return null; // token absent ou invalide
   }
-  const me = await getCurrentUser();
-  if (me) {
-    displaySelf = {
-      id: Number(me.id),
-      name: me.name,
-      display: me.username || me.name,
+
+  const token = localStorage.getItem("token");
+  const myId = localStorage.getItem("id");
+  const rawUsername = localStorage.getItem("username");
+  const rawName = localStorage.getItem("name");
+  /** Appelé par main.ts après render() quand path === '/play' */
+  export async function setupPlayPage() {
+    console.log("DEBUG tournament init", {token, myId, rawUsername, rawName});
+    
+    const $ = (id: string) => document.getElementById(id)!;
+    const show = (el: HTMLElement) => el.classList.remove("hidden");
+    const hide = (el: HTMLElement) => el.classList.add("hidden");
+    
+    const modeChoice      = $("modeChoice");
+    const localSubmenu    = $("localSubmenu");
+    const tournamentPanel = $("tournamentPanel");
+    
+    type Player = { id: number; name: string; display: string };
+    let currentMatch: { p1: Player; p2: Player } | null = null;
+    const players: Player[] = [];
+    let displaySelf: Player | null = null;
+
+    // 🔑 Vérification connexion
+    let validToken: string | null = null;
+    if (token) {
+      validToken = await ensureToken();
+    }
+
+    if (validToken && myId && rawName) {
+      displaySelf = { 
+        id: parseInt(myId, 10), 
+        name: rawName, 
+        display: rawUsername || rawName 
+      };
+      players.push(displaySelf);
+    } else if (validToken) {
+      try {
+          const me = await getCurrentUser();
+          if (me) {
+            displaySelf = {
+              id: Number(me.id),
+              name: me.name,
+               display: me.username || me.name,
+             };
+             players.push(displaySelf);
+           }
+        } catch (err) {
+          console.warn("Impossible de récupérer /me :", err);
+        }
+    } else {
+      // pas connecté → on tente pas d’appeler /me inutilement
+      console.log("Pas connecté → jeu local seulement");
+    }
+
+    // ========== Navigation ==========
+    $("localBtn").onclick = () => {
+      hide(modeChoice);
+      show(localSubmenu);
+      hide(tournamentPanel);
     };
-    players.push(displaySelf);
-  }
-  // ========== Navigation (Local / Online / Sous-menu) ==========
-  $("localBtn").onclick = () => {
-    hide(modeChoice);
-    show(localSubmenu);
-    hide(tournamentPanel);
-  };
 
-  $("backToModeBtn").onclick = () => {
-    show(modeChoice);
-    hide(localSubmenu);
-    hide(tournamentPanel);
-  };
+    $("backToModeBtn").onclick = () => {
+      show(modeChoice);
+      hide(localSubmenu);
+      hide(tournamentPanel);
+    };
 
-  $("onlineBtn").onclick = () => {
-    forceGameRender("game-online");
-  };
+    $("onlineBtn").onclick = async () => {
+      const alertBox = document.getElementById("playAlert")!;
+      const token = await ensureToken();
+      if (!token) {
+        alertBox.textContent = "⚠️ Vous devez être connecté pour jouer en ligne.";
+        alertBox.classList.remove("hidden");
+        return;
+      }
+      alertBox.classList.add("hidden");
+      forceGameRender("game-online");
+    };
 
-  $("quickPlayBtn").onclick = () => {
-    hide(modeChoice);
-    show(localSubmenu);
-    hide(tournamentPanel);
-    forceGameRender("game-local");
-  };
+    $("quickPlayBtn").onclick = () => {
+      hide(modeChoice);
+      show(localSubmenu);
+      hide(tournamentPanel);
+      forceGameRender("game-local");
+    };
 
-  $("tournamentBtn").onclick = () => {
-    hide(modeChoice);
-    show(localSubmenu);
-    show(tournamentPanel);
-  };
+    $("tournamentBtn").onclick = async () => {
+      const alertBox = document.getElementById("playAlert")!;
+      const token = await ensureToken();
 
-  $("closeTournamentBtn").onclick = () => {
-    hide(tournamentPanel);
-  };
+      if (!token) {
+        alertBox.textContent = "⚠️ Vous devez être connecté pour accéder au tournoi.";
+        alertBox.classList.remove("hidden");
+        return;
+      }
+      hide(modeChoice);
+      show(localSubmenu);
+      show(tournamentPanel);
+    };
+
+    $("closeTournamentBtn").onclick = () => {
+      hide(tournamentPanel);
+    };
 
   // ========== Logique tournoi ==========
   const aliasInput  = $("aliasInput") as HTMLInputElement;

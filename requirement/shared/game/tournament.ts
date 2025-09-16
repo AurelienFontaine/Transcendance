@@ -58,15 +58,15 @@ export class Tournament {
     match.s1 = s1;
     match.s2 = s2;
 
-    if (s1 > s2) {
-      this.standings.set(p1Id, (this.standings.get(p1Id) || 0) + 3);
-    } else if (s2 > s1) {
-      this.standings.set(p2Id, (this.standings.get(p2Id) || 0) + 3);
-    } else {
-      this.standings.set(p1Id, (this.standings.get(p1Id) || 0) + 1);
-      this.standings.set(p2Id, (this.standings.get(p2Id) || 0) + 1);
+    const diff = Math.abs(s1 - s2);
+    if (diff === 0) {
+      console.warn("[Tournament] Unexpected draw detected:", { p1Id, p2Id, s1, s2 });
+      return;
     }
+    const winnerId = s1 > s2 ? p1Id : p2Id;
+    this.standings.set(winnerId, (this.standings.get(winnerId) || 0) + diff);
   }
+
 
   getStandings() {
     return Array.from(this.standings.entries())
