@@ -1,11 +1,17 @@
 // requirement/frontend/pages/play.ts
 import { Tournament } from "../handlers/game/tournament";
-import { __forceRender as forceGameRender, startLocalMatch, showBoardForTournament } from "../handlers/game/game-front";
+import { __forceRender as forceGameRender, startLocalMatch, showBoardForTournament, cleanupGame } from "../handlers/game/game-front";
 import { apiBase, getCurrentUser } from "../src/utils";
 
 let tournament: Tournament | null = null;
 
+// ➜ État de vue persistant pour corriger les soucis de refresh / navigation
+type PlayView = "root" | "localMenu" | "quickPlay" | "tournament";
+let playView: PlayView = (localStorage.getItem("playView") as PlayView) || "root";
+
 export function renderPlay() {
+  console.log("[PLAY] renderPlay called");
+
   return `
   <div class="min-h-screen flex flex-col items-center justify-start bg-gray-900 text-white py-10">
   
@@ -27,6 +33,7 @@ export function renderPlay() {
   <button id="tournamentBtn" class="bg-gray-700 px-4 py-2 rounded">Tournoi</button>
   <button id="backToModeBtn" class="bg-gray-700 px-4 py-2 rounded">Retour</button>
   </div>
+  <div id="playAlertLocal" class="hidden mt-4 text-red-400 font-semibold"></div>
   </section>
   
   <!-- === Section 3 : panneau tournoi (caché par défaut) === -->
@@ -50,7 +57,7 @@ export function renderPlay() {
   <section class="flex flex-col gap-4 items-center w-full max-w-3xl">
   <div id="menu" style="display:none"></div>
   <div id="gamecontainer" style="display:none; width: 1000px; height: 1000px;">
-  <div id="app">
+  <div id="gameApp">
   <button id="startBtn"    style="display:none; top:100px; right:180px; z-index:10;">Start</button>
   <button id="pauseBtn"    style="display:none; top:10px;  left:10px;   z-index:10;">Pause</button>
   <button id="restartBtn"  style="display:none; top:10px;  right:180px; z-index:10;">Restart</button>
@@ -82,30 +89,56 @@ export function renderPlay() {
 }
 
 async function ensureToken(): Promise<string | null> {
-    const token = localStorage.getItem("token");
-    if (!token) 
-      return null;
-    try {
-      const res = await fetch(`${apiBase()}/me`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.ok) 
-        return token; // token valide
-    } catch (e) {
-      console.warn("Vérification du token échouée", e);
-    }
-    return null; // token absent ou invalide
-  }
-
   const token = localStorage.getItem("token");
+  console.log("[ensureToken] token in storage =", token);
+  if (!token) return null;
+
+  try {
+    const res = await fetch(`${apiBase()}/me`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    console.log("[ensureToken] /me status =", res.status);
+    if (res.ok) {
+      console.log("[ensureToken] valid token confirmed");
+      return token;
+    }
+  } catch (e) {
+    console.warn("[ensureToken] Vérification échouée", e);
+  }
+  console.log("[ensureToken] invalid token, returning null");
+  return null;
+}
+
+
+  // const token = localStorage.getItem("token");
   const myId = localStorage.getItem("id");
   const rawUsername = localStorage.getItem("username");
   const rawName = localStorage.getItem("name");
+
+function resetHandlers(ids: string[]) {
+  ids.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      const clone = el.cloneNode(true);
+      el.parentNode!.replaceChild(clone, el);
+    }
+  });
+}
+
   /** Appelé par main.ts après render() quand path === '/play' */
   export async function setupPlayPage() {
-    console.log('[PLAY] setupPlayPage start. path=', location.pathname);
-    console.log("DEBUG tournament init", {token, myId, rawUsername, rawName});
-    
+    resetHandlers([
+    "onlineBtn",
+    "localBtn",
+    "quickPlayBtn",
+    "tournamentBtn",
+    "backToModeBtn"
+  ]);
+    console.log("[PLAY] setupPlayPage start. document.getElementById('modeChoice') =", document.getElementById("modeChoice"));
+    if (!history.state || !history.state.page) {
+      playView = "root";
+      localStorage.setItem("playView", "root");
+}
     const $ = (id: string) => document.getElementById(id)!;
     const show = (el: HTMLElement) => el.classList.remove("hidden");
     const hide = (el: HTMLElement) => el.classList.add("hidden");
@@ -113,6 +146,7 @@ async function ensureToken(): Promise<string | null> {
     const modeChoice      = $("modeChoice");
     const localSubmenu    = $("localSubmenu");
     const tournamentPanel = $("tournamentPanel");
+    const alertBox = document.getElementById("playAlert") as HTMLElement | null;
     
     type Player = { id: number; name: string; display: string };
     let currentMatch: { p1: Player; p2: Player } | null = null;
@@ -120,10 +154,7 @@ async function ensureToken(): Promise<string | null> {
     let displaySelf: Player | null = null;
 
     // 🔑 Vérification connexion
-    let validToken: string | null = null;
-    if (token) {
-      validToken = await ensureToken();
-    }
+    let validToken: string | null = await ensureToken();
 
     if (validToken && myId && rawName) {
       displaySelf = { 
@@ -151,54 +182,127 @@ async function ensureToken(): Promise<string | null> {
       console.log("Pas connecté → jeu local seulement");
     }
 
+    // ➜ Orchestrateur d’affichage basé sur l’état persistant
+    function setView(view: PlayView) {
+      playView = view;
+      localStorage.setItem("playView", view);
+
+      // Reset de base
+      hide(modeChoice);
+      hide(localSubmenu);
+      hide(tournamentPanel);
+      // if (alertBox) alertBox.classList.add("hidden");
+
+      // On nettoie le jeu si on quitte quickPlay
+      if (view !== "quickPlay") {
+        cleanupGame();
+      }
+
+      // Affichage selon vue
+      if (view === "root") {
+        show(modeChoice);
+      } else if (view === "localMenu") {
+        show(localSubmenu);
+      } else if (view === "quickPlay") {
+        show(localSubmenu);
+        // démarre/affiche le jeu local
+        forceGameRender("game-local");
+      } else if (view === "tournament") {
+        show(localSubmenu);
+        show(tournamentPanel);
+      }
+    }
+    async function ensureSelfPlayer() {
+      const t = await ensureToken();
+      if (!t) return;
+
+      // On tente d’abord depuis localStorage (rapide)
+      const idStr  = localStorage.getItem("id");
+      const name   = localStorage.getItem("name") || "";
+      const uname  = localStorage.getItem("username") || name;
+
+      let self: Player | null = null;
+
+      if (idStr && name) {
+        self = { id: parseInt(idStr, 10), name, display: uname || name };
+      } else {
+        // Sinon on rafraîchit depuis /me
+        try {
+          const me = await getCurrentUser();
+          if (me) {
+            self = { id: Number(me.id), name: me.name, display: me.username || me.name };
+          }
+        } catch (e) {
+          console.warn("ensureSelfPlayer: /me failed", e);
+        }
+      }
+
+      if (self) {
+        displaySelf = self;
+        if (!players.some(p => p.id === self!.id)) {
+          players.push(self);
+        }
+      }
+    }
+
     // ========== Navigation ==========
     $("localBtn").onclick = () => {
-      hide(modeChoice);
-      show(localSubmenu);
-      hide(tournamentPanel);
+      setView("localMenu");
     };
 
     $("backToModeBtn").onclick = () => {
-      show(modeChoice);
-      hide(localSubmenu);
-      hide(tournamentPanel);
+      setView("root");
     };
 
+    console.log("[ONLINE BTN] replacing onclick handler");
     $("onlineBtn").onclick = async () => {
+    console.log("[ONLINE BTN] clicked handler (fresh)");
       const alertBox = document.getElementById("playAlert")!;
+      console.log("[ONLINE BTN] clicked");
+
       const token = await ensureToken();
+      console.log("[ONLINE BTN] ensureToken returned =", token);
+
       if (!token) {
-        alertBox.textContent = "⚠️ Vous devez être connecté pour jouer en ligne.";
-        alertBox.classList.remove("hidden");
+        if (alertBox) {
+          alertBox.textContent = "⚠️ Vous devez être connecté pour jouer en ligne.";
+          alertBox.classList.remove("hidden");
+        }
+        console.log("[ONLINE BTN] blocked → pas de connexion");
         return;
       }
-      alertBox.classList.add("hidden");
+
+      if (alertBox) alertBox.classList.add("hidden");
+
+      console.log("[ONLINE BTN] starting game-online…");
       forceGameRender("game-online");
     };
 
+
     $("quickPlayBtn").onclick = () => {
-      hide(modeChoice);
-      show(localSubmenu);
-      hide(tournamentPanel);
-      forceGameRender("game-local");
+      setView("quickPlay");
     };
 
     $("tournamentBtn").onclick = async () => {
-      const alertBox = document.getElementById("playAlert")!;
-      const token = await ensureToken();
-
-      if (!token) {
-        alertBox.textContent = "⚠️ Vous devez être connecté pour accéder au tournoi.";
-        alertBox.classList.remove("hidden");
-        return;
+       const tokenNow = await ensureToken();
+    // On affiche l’alerte dans le sous-menu local (visible)
+    const localAlert = document.getElementById("playAlertLocal");
+    if (!tokenNow) {
+      if (localAlert) {
+        localAlert.textContent = "⚠️ Vous devez être connecté pour accéder au tournoi.";
+        localAlert.classList.remove("hidden");
       }
-      hide(modeChoice);
-      show(localSubmenu);
-      show(tournamentPanel);
-    };
+      return;
+    }
+    if (localAlert) localAlert.classList.add("hidden");
+    // S’auto-inscrire *maintenant* (sans attendre un refresh de page)
+    await ensureSelfPlayer();
+    setView("tournament");
+    refreshPlayers();
+    };  
 
     $("closeTournamentBtn").onclick = () => {
-      hide(tournamentPanel);
+      setView("localMenu");
     };
 
   // ========== Logique tournoi ==========
@@ -355,9 +459,19 @@ async function ensureToken(): Promise<string | null> {
     refreshPlayers();
   };
 
+  // ▼ Restauration de la vue au refresh (avec vérif token pour tournoi)
   refreshPlayers();
-  console.log('[PLAY] modeChoice hidden?', document.getElementById('modeChoice')?.classList.contains('hidden'));
-  console.log('[PLAY] localSubmenu hidden?', document.getElementById('localSubmenu')?.classList.contains('hidden'));
-  console.log('[PLAY] tournamentPanel hidden?', document.getElementById('tournamentPanel')?.classList.contains('hidden'));
-  console.log('[PLAY] setupPlayPage end.');
+
+  let initialView: PlayView = playView;
+  if (initialView === "tournament") {
+    const can = await ensureToken();
+    if (!can) {
+      initialView = "localMenu";
+      if (alertBox) {
+        alertBox.textContent = "⚠️ Vous devez être connecté pour accéder au tournoi.";
+        alertBox.classList.remove("hidden");
+      }
+    }
+  }
+  setView(initialView);
 }

@@ -91,17 +91,25 @@ wss.on("connection", (ws) => {
     } else if (data.type === 'reset') {
       console.log(`🔄 RESET room ${room.id}`);
       room.game = new PongGame();
-
     } else if (data.type === 'start') {
+      if (room.clients.length < 2) {
+        console.log(`⚠️ START ignoré: room ${room.id} n’a pas 2 joueurs`);
+        return;
+      }
       console.log(`▶️ START room ${room.id}`);
       room.game.resetBall();
       room.game.Started = true;
-
-    } else if (data.type === 'pause') {
+    } 
+   
+    else if (data.type === 'pause') {
+      if (room.clients.length < 2) {
+        console.log(`⚠️ PAUSE ignoré: room ${room.id} n’a pas 2 joueurs`);
+        return;
+      }
       console.log(`⏸️ PAUSE room ${room.id}`);
       room.game.Started = !room.game.Started;
-
-    } else if (data.type === "settings:set") {
+    }
+    else if (data.type === "settings:set") {
       if (typeof data.speedPercent === "number") {
         console.log(`🎚️ Room ${room.id} Speed -> ${data.speedPercent}`);
         room.game.setSpeedPercent(data.speedPercent);

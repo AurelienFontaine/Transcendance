@@ -14,10 +14,10 @@ export function sketch(getState: () => GameState | null) {
     };
 
     p.draw = () => {
-      console.log("🎨 Drawing frame");
-      p.background(0);
       const state = getState();
       if (!state) return;
+
+      p.background(0);
 
       // Balle
       p.fill(state.ballColor ?? "#FFF");
@@ -32,9 +32,8 @@ export function sketch(getState: () => GameState | null) {
       p.fill("#FFF");
       p.textSize(32);
       p.textAlign(CENTER, TOP);
-     (p as any).text(`${state.score.p1} : ${state.score.p2}`, w / 2, 20);
-     console.log("⏺️ state in draw():", state);
-
+      (p as any).text(`${state.score.p1} : ${state.score.p2}`, w / 2, 20);
     };
   };
 }
+

@@ -12,6 +12,19 @@ import type {
   StateMessage,
 } from "./types";
 
+// --- Debug box globale --- 
+const DBG = (window as any).__PONGDBG || ((window as any).__PONGDBG = {
+  renderCalls: 0,
+  p5Creates: 0,
+  p5Removes: 0,
+  wsCreates: 0,
+  wsCloses: 0,
+  localLoops: 0,
+  lastPlayers: 0,
+  lastPaused: true,
+});
+
+
 type ClientMessage =
   | InputMessage
   | PauseMessage
@@ -98,26 +111,44 @@ function wireSettingsPanel() {
 function pauseSketch()   { if (p5Instance) p5Instance.noLoop(); }
 function resumeSketch()  { if (p5Instance) p5Instance.loop(); }
 function updateCanvasVisibility(visible: boolean) {
-  const app = document.getElementById("app")!;
+  const app = document.getElementById("gameApp")!;
   app.style.display = visible ? "block" : "none";
 }
 
 function removeEventListeners() {
-  const oldPause = document.getElementById("pauseBtn");
-  if (oldPause) {
-    const clone = oldPause.cloneNode(true) as HTMLButtonElement;
-    oldPause.replaceWith(clone);
+  // Liste des boutons à réinitialiser
+  const buttons = ["pauseBtn", "restartBtn", "startBtn", "settingsBtn", "applySettings"];
+  for (const id of buttons) {
+    const el = document.getElementById(id);
+    if (el) {
+      const clone = el.cloneNode(true) as HTMLElement;
+      el.replaceWith(clone);
+    }
   }
-  const oldRestart = document.getElementById("restartBtn");
-  if (oldRestart) {
-    const clone = oldRestart.cloneNode(true) as HTMLButtonElement;
-    oldRestart.replaceWith(clone);
+
+  // Cache aussi le panneau de settings
+  const settingsPanel = document.getElementById("settingsPanel");
+  if (settingsPanel) settingsPanel.style.display = "none";
+
+  // ⚠️ IMPORTANT : stoppe les boucles de jeu
+  if (localLoop) {
+    clearInterval(localLoop);
+    localLoop = undefined;
   }
-  const start = getStartBtn();
-  if (start) start.onclick = null;
+
+  // cancelAnimationFrame(animationFrameId); // si tu as un RAF
+  // animationFrameId = 0;
+  // Coupe la websocket s’il y en a une
+  if (ws) {
+    ws.close();
+    ws = null;
+  }
 }
 
-function cleanupGame() {
+
+export function cleanupGame() {
+  console.log("🧹 cleanupGame: removing p5Instance =", !!p5Instance);
+
   pauseSketch();
   if (localLoop) { clearInterval(localLoop); localLoop = undefined; }
   localGame = null;
@@ -130,11 +161,29 @@ function cleanupGame() {
 
   removeEventListeners();
 
-  const start = getStartBtn();
-  if (start) start.style.display = "none";
-  const pause = document.getElementById("pauseBtn") as HTMLButtonElement | null;
-  if (pause) pause.textContent = "Pause";
+  // 🔹 Supprimer l'instance p5 si elle existe
+  if (p5Instance) {
+    p5Instance.remove();
+    p5Instance = null;
+  }
+  const canvasRoot = document.getElementById("gameApp");
+  if (canvasRoot) {
+    canvasRoot.querySelectorAll("canvas").forEach(c => c.remove());
+  }
+
+  // 🔹 Masquer les boutons
+  ["startBtn", "pauseBtn", "restartBtn", "settingsBtn"].forEach(id => {
+    const el = document.getElementById(id) as HTMLElement | null;
+    if (el) el.style.display = "none";
+  });
+
+  const settingsPanel = document.getElementById("settingsPanel");
+  if (settingsPanel) settingsPanel.style.display = "none";
+
+  const container = document.getElementById("gamecontainer");
+  if (container) container.style.display = "none";
 }
+
 
 // ---------------- ONLINE ----------------
 
@@ -192,54 +241,96 @@ function wireSettingsPanelOnline(ws: WebSocket) {
   }
 }
 
-
+// ---------------- ONLINE ----------------
 export function startOnlineGame() {
   mode = "online";
 
-  const pause = document.getElementById("pauseBtn") as HTMLButtonElement | null;
-  const restart = document.getElementById("restartBtn") as HTMLButtonElement | null;
+  const pause = getPauseBtn();
+  const restart = getRestartBtn();
 
   ws = new WebSocket(wsBase());
 
- ws.onmessage = (event) => {
-  const msg = JSON.parse(event.data);
+  ws.onmessage = (event) => {
+    const msg = JSON.parse(event.data);
 
-  if (msg.type === "player") {
-    playerIndex = msg.playerIndex;
-    console.log(`Assigné à la room ${msg.roomId} en tant que Player ${msg.playerIndex}`);
-  }
-  else if (msg.type === "error" && ws != null) {
-    alert(msg.message || "Connexion refusée : toutes les salles sont pleines.");
-    ws.close();
-    return;
-  }
-  else if (msg.type === "state") {
-    latestState = msg.state;
-    isPaused = msg.paused;
-    if (pause) pause.textContent = isPaused ? "Play" : "Pause";
+    if (msg.type === "player") {
+      playerIndex = msg.playerIndex;
+      console.log(`Assigné à la room ${msg.roomId} en tant que Player ${msg.playerIndex}`);
+    }
+    else if (msg.type === "error" && ws != null) {
+      alert(msg.message || "Connexion refusée : toutes les salles sont pleines.");
+      ws.close();
+      return;
+    }
+    else if (msg.type === "state") {
+      latestState = msg.state;
+      isPaused = msg.paused;
+      if (pause) pause.textContent = isPaused ? "Play" : "Pause";
+      const pauseBtn = getPauseBtn();
 
-    // --- Gestion dynamique du bouton Start ---
-    const startBtn = document.getElementById("startBtn") as HTMLButtonElement;
-    if (startBtn) {
       if (msg.players < 2) {
+        // désactive totalement le bouton Play/Pause
+        if (pauseBtn) {
+          pauseBtn.disabled = true;
+          pauseBtn.style.pointerEvents = "none";
+        }
+      } else {
+        // quand 2 joueurs → réactiver
+        if (pauseBtn) {
+          pauseBtn.disabled = false;
+          pauseBtn.style.pointerEvents = "auto";
+        }
+      }
+      const startBtn = getStartBtn();
+
+      // LOGS de debug
+      console.log("[STATE] players=", msg.players, "paused=", msg.paused);
+      console.log("[STATE] before: startBtn.disabled=", startBtn.disabled, "onclick=", !!startBtn.onclick);
+
+      if (msg.players < 2) {
+        // Pas assez de joueurs → bouton visible mais inactif (message d’attente)
         startBtn.style.display = "inline-block";
         startBtn.disabled = true;
         startBtn.textContent = "Waiting for player 2...";
+        startBtn.onclick = null;                       // ← aucun handler
+        startBtn.style.pointerEvents = "none";         // ← ceinture et bretelles
       } else if (msg.paused) {
+        // 2 joueurs et partie en pause → Start activable
         startBtn.style.display = "inline-block";
         startBtn.disabled = false;
         startBtn.textContent = "Start";
-      } else {
-        startBtn.style.display = "none";
-      }
-    }
-  }
-};
+        startBtn.style.pointerEvents = "auto";
 
+        // IMPORTANT: recâblage propre (on écrase tout handler précédent)
+        startBtn.onclick = () => {
+          // Garde-fou côté client : revalide avant d’envoyer
+          if (msg.players >= 2 && ws?.readyState === WebSocket.OPEN) {
+            console.log("[START] send 'start'");
+            ws.send(JSON.stringify({ type: "start" }));
+            startBtn.disabled = true;
+            startBtn.style.display = "none";
+          } else {
+            console.warn("[START] blocked at click-time: players<2 or ws not open");
+          }
+        };
+      } else {
+        // Partie en cours → Start caché
+        startBtn.style.display = "none";
+        startBtn.disabled = true;
+        startBtn.onclick = null;
+        startBtn.style.pointerEvents = "none";
+      }
+
+      console.log("[STATE] after: startBtn.disabled=", startBtn.disabled, "onclick=", !!startBtn.onclick, "display=", startBtn.style.display);
+    }
+
+  };
 
   ws.onopen = () => {
-    getStartBtn().style.display = "block";
-    getStartBtn().disabled = false;
+    const startBtn = getStartBtn();
+    startBtn.style.display = "inline-block";
+    startBtn.disabled = true;
+    startBtn.onclick = null; 
 
     restart?.addEventListener("click", () => {
       if (ws?.readyState === WebSocket.OPEN) {
@@ -254,11 +345,11 @@ export function startOnlineGame() {
       if (pause) pause.textContent = isPaused ? "Play" : "Pause";
     });
 
-    getStartBtn().onclick = () => {
-      if (ws?.readyState === WebSocket.OPEN) {
+    startBtn.onclick = () => {
+      if (ws?.readyState === WebSocket.OPEN && !startBtn.disabled) {
         ws.send(JSON.stringify({ type: "start" }));
-        getStartBtn().disabled = true;
-        getStartBtn().style.display = "none";
+        startBtn.disabled = true;
+        startBtn.style.display = "none";
       }
     };
   };
@@ -269,11 +360,11 @@ export function startOnlineGame() {
   };
 }
 
+
 // ---------------- LOCAL (partie simple) ----------------
 export function startLocalGame() {
   mode = "local";
   localGame = new PongGame();
-  // applique la vitesse mémorisée
   localGame.setSpeedPercent(currentSpeedPercent);
   quickReported = false;
 
@@ -283,44 +374,8 @@ export function startLocalGame() {
     paddleColor: localGame.paddleColor
   };
 
-  const pause = document.getElementById("pauseBtn") as HTMLButtonElement | null;
-  const restart = document.getElementById("restartBtn") as HTMLButtonElement | null;
-
   getStartBtn().style.display = "block";
   getStartBtn().disabled = false;
-
-  if (localLoop) clearInterval(localLoop);
-  localLoop = window.setInterval(() => {
-    if (localGame) {
-      if (!isPaused) localGame.update();
-      latestState = {
-        ...localGame.state,
-        ballColor: localGame.ballColor,
-        paddleColor: localGame.paddleColor
-      };
-
-      if (localGame.GameOver && !quickReported) {
-        quickReported = true;
-        const s1 = localGame.state.score.p1 ?? 0;
-        const s2 = localGame.state.score.p2 ?? 0;
-        const token = localStorage.getItem('token');
-
-        if (token) {
-          fetch(`${apiBase()}/game/quick-result`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`,
-            },
-            body: JSON.stringify({
-              s1,
-              s2,
-            }),
-          }).catch(e => console.warn('Quick Play save failed:', e));
-        }
-      }
-    }
-  }, 1000 / 60);
 
   getStartBtn().onclick = () => {
     if (localGame) {
@@ -331,26 +386,20 @@ export function startLocalGame() {
     }
   };
 
-  // Pause
+  const pause = getPauseBtn();
   pause?.addEventListener("click", () => {
-    if (!localGame) return;
-    if (localGame.GameOver) return;
+    if (!localGame || localGame.GameOver) return;
     if (!localGame.Started && !isPaused) return;
 
     isPaused = !isPaused;
-    if (isPaused) {
-      localGame.Started = false;
-      pause.textContent = "Play";
-    } else {
-      localGame.Started = true;
-      pause.textContent = "Pause";
-    }
+    localGame.Started = !isPaused;
+    if (pause) pause.textContent = isPaused ? "Play" : "Pause";
   });
 
-  // Restart — conserve currentSpeedPercent
+  const restart = getRestartBtn();
   restart?.addEventListener("click", () => {
     localGame = new PongGame();
-    localGame.setSpeedPercent(currentSpeedPercent); // <—
+    localGame.setSpeedPercent(currentSpeedPercent);
     quickReported = false;
     latestState = localGame.state;
     localGame.resetBall();
@@ -362,8 +411,10 @@ export function startLocalGame() {
 
     getStartBtn().disabled = false;
     getStartBtn().style.display = "block";
+  });
 
-    if (localLoop) clearInterval(localLoop);
+  // --- Boucle de jeu ---
+  function loopStart() {
     localLoop = window.setInterval(() => {
       if (localGame) {
         if (!isPaused) localGame.update();
@@ -372,10 +423,31 @@ export function startLocalGame() {
           ballColor: localGame.ballColor,
           paddleColor: localGame.paddleColor
         };
+
+        if (localGame.GameOver && !quickReported) {
+          quickReported = true;
+          const s1 = localGame.state.score.p1 ?? 0;
+          const s2 = localGame.state.score.p2 ?? 0;
+          const token = localStorage.getItem('token');
+
+          if (token) {
+            fetch(`${apiBase()}/game/quick-result`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`,
+              },
+              body: JSON.stringify({ s1, s2 }),
+            }).catch(e => console.warn('Quick Play save failed:', e));
+          }
+        }
       }
     }, 1000 / 60);
-  });
+  }
+
+  loopStart();
 }
+
 
 // ---------------- SPA nav inside game container ----------------
 function navigateTo(page: "menu" | "game-local" | "game-online") {
@@ -384,6 +456,7 @@ function navigateTo(page: "menu" | "game-local" | "game-online") {
 }
 
 export function __forceRender(page: "game-local" | "game-online" | "menu") {
+  cleanupGame();
   const currentPage = history.state?.page;
   if (currentPage !== page) {
     history.replaceState({ page }, "", `#${page}`);
@@ -392,6 +465,8 @@ export function __forceRender(page: "game-local" | "game-online" | "menu") {
 }
 
 function renderPage(page: string) {
+  console.log("🎨 Creating new p5Instance, current =", p5Instance);
+  console.log(`[RP] enter renderPage(${page}) #${++DBG.renderCalls}`, new Error().stack?.split('\n').slice(0,3).join('\n'));
   const menu = document.getElementById("menu")!;
   const gameContainer = document.getElementById("gamecontainer")!;
   switch (page) {
@@ -409,45 +484,51 @@ function renderPage(page: string) {
       break;
 
     case "game-local":
-      cleanupGame();
-      menu.style.display = "none";
-      gameContainer.style.display = "block";
+  cleanupGame();
+  menu.style.display = "none";
+  gameContainer.style.display = "block";
 
-      const canvas = document.getElementById("app");
-      if (canvas) {
-        canvas.querySelectorAll("canvas").forEach(c => c.remove());
-        if (p5Instance) { p5Instance.remove(); p5Instance = null; }
+  const canvas = document.getElementById("gameApp");
+  if (canvas) {
+    // Supprimer d’anciens canvas + instance p5
+    canvas.querySelectorAll("canvas").forEach(c => c.remove());
+    if (p5Instance) { p5Instance.remove(); p5Instance = null; }
 
-        p5Instance = new p5(sketch(() => latestState), canvas);
-        resumeSketch();
-        startLocalGame();
+    // ⚡ Correction : fournir directement l’état du jeu local
+    p5Instance = new p5(sketch(() => localGame ? localGame.state : null), canvas);
 
-        // Settings panel dispo + relié
-        getStartBtn().style.display    = "block";
-        getPauseBtn().style.display    = "block";
-        getRestartBtn().style.display  = "block";
-        getSettingsBtn().style.display = "block";
-        updateCanvasVisibility(true);
-        wireSettingsPanel();
-      } else {
-        console.error("❌ canvas #app not found!");
-      }
-      break;
+    resumeSketch();
+    startLocalGame();
 
-    case "game-online":
+    // Settings panel dispo + relié
+    getStartBtn().style.display    = "block";
+    getPauseBtn().style.display    = "block";
+    getRestartBtn().style.display  = "block";
+    getSettingsBtn().style.display = "block";
+    updateCanvasVisibility(true);
+    wireSettingsPanel();
+  } else {
+    console.error("❌ canvas #app not found!");
+  }
+  break;
+
+
+  case "game-online":
     cleanupGame();
     menu.style.display = "none";
     gameContainer.style.display = "block";
 
-    const canvasOnline = document.getElementById("app");
+    const canvasOnline = document.getElementById("gameApp");
     if (canvasOnline) {
       // Supprime d’anciens canvas
       canvasOnline.querySelectorAll("canvas").forEach(c => c.remove());
-      if (p5Instance) { p5Instance.remove(); p5Instance = null; }
+      // if (p5Instance) { p5Instance.remove(); p5Instance = null; }
 
       // ⚡ Lance p5 avec le state online
-      p5Instance = new p5(sketch(() => latestState), canvasOnline);
+      // if (p5Instance) { p5Instance.remove(); p5Instance = null; }
+      //   canvasOnline.querySelectorAll("canvas").forEach(c => c.remove());
 
+      p5Instance = new p5(sketch(() => latestState), canvasOnline);
       resumeSketch();
       startOnlineGame();
 
@@ -467,21 +548,21 @@ function renderPage(page: string) {
 }
 
 // Init (pour l'ancien menu interne si utilisé)
-window.addEventListener("DOMContentLoaded", () => {
-  const localBtn = document.getElementById("localBtn") as HTMLButtonElement | null;
-  const onlineBtn = document.getElementById("onlineBtn") as HTMLButtonElement | null;
-  const page = history.state?.page || "menu";
+// window.addEventListener("DOMContentLoaded", () => {
+//   const localBtn = document.getElementById("localBtn") as HTMLButtonElement | null;
+//   const onlineBtn = document.getElementById("onlineBtn") as HTMLButtonElement | null;
+//   const page = history.state?.page || "menu";
 
-  renderPage(page);
+//   renderPage(page);
 
-  localBtn?.addEventListener("click", () => navigateTo("game-local"));
-  onlineBtn?.addEventListener("click", () => navigateTo("game-online"));
-});
+//   localBtn?.addEventListener("click", () => navigateTo("game-local"));
+//   onlineBtn?.addEventListener("click", () => navigateTo("game-online"));
+// });
 
-window.addEventListener("popstate", () => {
-  const page = history.state?.page || "menu";
-  renderPage(page);
-});
+// window.addEventListener("popstate", () => {
+//   const page = history.state?.page || "menu";
+//   renderPage(page);
+// });
 
 // ---------------- Tournoi: scène unique + jeu auto ----------------
 export function showBoardForTournament() {
@@ -491,7 +572,7 @@ export function showBoardForTournament() {
   cleanupGame();
 
   // retire tous les canvases précédents
-  const canvasRoot = document.getElementById("app")!;
+  const canvasRoot = document.getElementById("gameApp")!;
   canvasRoot.querySelectorAll("canvas").forEach(c => c.remove());
 
   menu.style.display = "none";
