@@ -19,6 +19,9 @@ export function sketch(getState: () => GameState | null) {
 
       p.background(0);
 
+      // Debug colors
+      console.log("🎨 SKETCH COLORS:", { ballColor: state.ballColor, paddleColor: state.paddleColor });
+
       // Balle
       p.fill(state.ballColor ?? "#FFF");
       p.circle(state.ball.x, state.ball.y, 15);

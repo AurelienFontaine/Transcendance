@@ -12,6 +12,13 @@ import type {
   StateMessage,
 } from "./types";
 
+// Import UI helpers
+import { getStartBtn, getPauseBtn, getRestartBtn, getSettingsBtn, wireSettingsPanel, wireSettingsPanelOnline } from "./game-ui-helpers";
+// Import WebSocket helpers
+import { wsBase } from "./game-websocket";
+// Import local game helpers
+import { createLocalGame, updateLocalGameState } from "./game-local";
+
 // --- Debug box globale --- 
 const DBG = (window as any).__PONGDBG || ((window as any).__PONGDBG = {
   renderCalls: 0,
@@ -50,13 +57,11 @@ let quickReported = false; // used only for Quick Play (startLocalGame)
 let wasRunningBeforeSettings = false; // mémorise l’état avant ouverture du panneau
 
 // ---------------- UI helpers ----------------
-function getStartBtn()   { return document.getElementById("startBtn")    as HTMLButtonElement; }
-function getPauseBtn()   { return document.getElementById("pauseBtn")    as HTMLButtonElement; }
-function getRestartBtn() { return document.getElementById("restartBtn")  as HTMLButtonElement; }
-function getSettingsBtn(){ return document.getElementById("settingsBtn") as HTMLButtonElement; }
+// (moved to game-ui-helpers.ts)
 
 // Monte le panneau Settings (slider + couleurs). Idempotent.
-function wireSettingsPanel() {
+// (moved to game-ui-helpers.ts)
+function wireSettingsPanelOriginal() {
   const panel      = document.getElementById("settingsPanel")!;
   const slider     = document.getElementById("speedSlider") as HTMLInputElement | null;
   const speedValue = document.getElementById("speedValue");
@@ -113,6 +118,17 @@ function resumeSketch()  { if (p5Instance) p5Instance.loop(); }
 function updateCanvasVisibility(visible: boolean) {
   const app = document.getElementById("gameApp")!;
   app.style.display = visible ? "block" : "none";
+}
+
+function updateSettingsButtonVisibility() {
+  const settingsBtn = getSettingsBtn();
+  if (settingsBtn) {
+    // Show settings button when:
+    // 1. Game is paused, OR
+    // 2. Game hasn't started yet (local game only)
+    const shouldShow = isPaused || (mode === "local" && localGame && !localGame.Started);
+    settingsBtn.style.display = shouldShow ? "block" : "none";
+  }
 }
 
 function removeEventListeners() {
@@ -187,59 +203,9 @@ export function cleanupGame() {
 
 // ---------------- ONLINE ----------------
 
-function wsBase() {
-  const proto = window.location.protocol === "https:" ? "wss" : "ws";
-  const host = window.location.hostname;  // ← ici ton 192.168.1.55
-  return `${proto}://${host}:3010`;
-}
+// wsBase function moved to game-websocket.ts
 
-function wireSettingsPanelOnline(ws: WebSocket) {
-  const panel      = document.getElementById("settingsPanel")!;
-  const slider     = document.getElementById("speedSlider") as HTMLInputElement | null;
-  const speedValue = document.getElementById("speedValue");
-
-  if (!panel || !slider || !speedValue) return;
-
-  // init UI
-  slider.value = String(currentSpeedPercent);
-  speedValue.textContent = `${currentSpeedPercent}%`;
-
-  // MAJ slider → envoi serveur
-  slider.oninput = () => {
-    const p = Math.max(0, Math.min(100, Math.round(Number(slider.value) || 0)));
-    currentSpeedPercent = p;
-    speedValue.textContent = `${p}%`;
-    if (ws?.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify({ type: "settings:set", speedPercent: p }));
-    }
-  };
-
-  // Bouton Apply : couleurs + fermeture panneau
-  const applyBtn = document.getElementById("applySettings") as HTMLButtonElement | null;
-  if (applyBtn) {
-    const fresh = applyBtn.cloneNode(true) as HTMLButtonElement;
-    applyBtn.replaceWith(fresh);
-    fresh.onclick = () => {
-      const ballColor   = (document.getElementById("ballColor") as HTMLInputElement).value;
-      const paddleColor = (document.getElementById("paddleColor") as HTMLInputElement).value;
-      if (ws?.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({ type: "settings:set", ballColor, paddleColor }));
-      }
-      panel.style.display = "none";
-    };
-  }
-
-  // Bouton Settings pour ouvrir/fermer
-  const btn = getSettingsBtn();
-  if (btn) {
-    const freshBtn = btn.cloneNode(true) as HTMLButtonElement;
-    btn.replaceWith(freshBtn);
-    freshBtn.onclick = () => {
-      const show = panel.style.display !== "block";
-      panel.style.display = show ? "block" : "none";
-    };
-  }
-}
+// wireSettingsPanelOnline moved to game-ui-helpers.ts
 
 // ---------------- ONLINE ----------------
 export function startOnlineGame() {
@@ -258,7 +224,21 @@ export function startOnlineGame() {
   }
 
   // Connect with authentication
-  ws = new WebSocket(`${wsBase()}?token=${encodeURIComponent(token)}&userId=${encodeURIComponent(userId)}`);
+  const wsUrl = `${wsBase()}?token=${encodeURIComponent(token)}&userId=${encodeURIComponent(userId)}`;
+  console.log("[WebSocket] Connecting to:", wsUrl);
+  ws = new WebSocket(wsUrl);
+
+  ws.onopen = () => {
+    console.log("[WebSocket] Connection opened successfully");
+  };
+
+  ws.onerror = (error) => {
+    console.error("[WebSocket] Connection error:", error);
+  };
+
+  ws.onclose = (event) => {
+    console.log("[WebSocket] Connection closed:", event.code, event.reason);
+  };
 
   ws.onmessage = (event) => {
     const msg = JSON.parse(event.data);
@@ -295,9 +275,19 @@ export function startOnlineGame() {
       return;
     }
     else if (msg.type === "state") {
-      latestState = msg.state;
+      // Preserve local color changes when updating from server
+      const currentColors = latestState ? {
+        ballColor: latestState.ballColor,
+        paddleColor: latestState.paddleColor
+      } : {};
+      
+      latestState = {
+        ...msg.state,
+        ...currentColors
+      };
       isPaused = msg.paused;
       if (pause) pause.textContent = isPaused ? "Play" : "Pause";
+      updateSettingsButtonVisibility();
       const pauseBtn = getPauseBtn();
 
       if (msg.players < 2) {
@@ -375,6 +365,7 @@ export function startOnlineGame() {
       isPaused = !isPaused;
       ws.send(JSON.stringify({ type: "pause" }));
       if (pause) pause.textContent = isPaused ? "Play" : "Pause";
+      updateSettingsButtonVisibility();
     });
 
     startBtn.onclick = () => {
@@ -390,14 +381,23 @@ export function startOnlineGame() {
     getStartBtn().style.display = "none";
     if (pause) pause.textContent = "Pause";
   };
+
+      // Wire settings panel for online game (with delay to ensure DOM is ready)
+      setTimeout(() => {
+        console.log("[Settings] Wiring online settings panel after delay");
+        wireSettingsPanelOnline(ws, currentSpeedPercent, (newState) => { 
+          console.log("🔧 UPDATING latestState FROM:", latestState, "TO:", newState);
+          latestState = newState; 
+        });
+      }, 100);
 }
 
 
 // ---------------- LOCAL (partie simple) ----------------
 export function startLocalGame() {
+  console.log("🚀 startLocalGame() called");
   mode = "local";
-  localGame = new PongGame();
-  localGame.setSpeedPercent(currentSpeedPercent);
+  localGame = createLocalGame(currentSpeedPercent);
   quickReported = false;
 
   latestState = {
@@ -406,6 +406,32 @@ export function startLocalGame() {
     paddleColor: localGame.paddleColor
   };
 
+  // Create sketch for local game
+  const canvasRoot = document.getElementById("gameApp");
+  if (canvasRoot) {
+    // Clean up any existing sketch first
+    if (p5Instance) { 
+      console.log("🧹 CLEANING UP OLD SKETCH");
+      p5Instance.remove(); 
+      p5Instance = null; 
+    }
+    
+    // Remove old canvas elements
+    canvasRoot.querySelectorAll("canvas").forEach(c => {
+      console.log("🧹 REMOVING OLD CANVAS");
+      c.remove();
+    });
+    
+    console.log("🎨 CREATING SKETCH FOR LOCAL GAME");
+    p5Instance = new p5(sketch(() => {
+      console.log("🎯 SKETCH GETSTATE CALLED:", { ballColor: latestState?.ballColor, paddleColor: latestState?.paddleColor });
+      return latestState;
+    }), canvasRoot);
+    console.log("🎨 SKETCH CREATED, calling resumeSketch()");
+    resumeSketch();
+    console.log("🎨 resumeSketch() called");
+  }
+
   getStartBtn().style.display = "block";
   getStartBtn().disabled = false;
 
@@ -413,8 +439,10 @@ export function startLocalGame() {
     if (localGame) {
       localGame.resetBall();
       localGame.Started = true;
+      isPaused = false;
       getStartBtn().disabled = true;
       getStartBtn().style.display = "none";
+      updateSettingsButtonVisibility(); // Hide settings button when game starts
     }
   };
 
@@ -426,6 +454,7 @@ export function startLocalGame() {
     isPaused = !isPaused;
     localGame.Started = !isPaused;
     if (pause) pause.textContent = isPaused ? "Play" : "Pause";
+    updateSettingsButtonVisibility();
   });
 
   const restart = getRestartBtn();
@@ -443,18 +472,15 @@ export function startLocalGame() {
 
     getStartBtn().disabled = false;
     getStartBtn().style.display = "block";
+    updateSettingsButtonVisibility();
   });
 
   // --- Boucle de jeu ---
   function loopStart() {
     localLoop = window.setInterval(() => {
       if (localGame) {
-        if (!isPaused) localGame.update();
-        latestState = {
-          ...localGame.state,
-          ballColor: localGame.ballColor,
-          paddleColor: localGame.paddleColor
-        };
+        latestState = updateLocalGameState(localGame, isPaused);
+        console.log("🔄 LOCAL LOOP STATE:", { ballColor: latestState.ballColor, paddleColor: latestState.paddleColor });
 
         if (localGame.GameOver && !quickReported) {
           quickReported = true;
@@ -526,19 +552,21 @@ function renderPage(page: string) {
     canvas.querySelectorAll("canvas").forEach(c => c.remove());
     if (p5Instance) { p5Instance.remove(); p5Instance = null; }
 
-    // ⚡ Correction : fournir directement l’état du jeu local
-    p5Instance = new p5(sketch(() => localGame ? localGame.state : null), canvas);
-
-    resumeSketch();
+    // ⚡ Correction : startLocalGame() will create the sketch
     startLocalGame();
 
     // Settings panel dispo + relié
-    getStartBtn().style.display    = "block";
-    getPauseBtn().style.display    = "block";
-    getRestartBtn().style.display  = "block";
-    getSettingsBtn().style.display = "block";
-    updateCanvasVisibility(true);
-    wireSettingsPanel();
+  getStartBtn().style.display    = "block";
+  getPauseBtn().style.display    = "block";
+  getRestartBtn().style.display  = "block";
+  getSettingsBtn().style.display = "none"; // Will be updated by updateSettingsButtonVisibility()
+  updateCanvasVisibility(true);
+  updateSettingsButtonVisibility(); // Show settings button initially for local game
+    // Wire settings panel for local game (with delay to ensure DOM is ready)
+    setTimeout(() => {
+      console.log("[Settings] Wiring local settings panel after delay");
+      wireSettingsPanel(currentSpeedPercent, localGame, (state) => { latestState = state; });
+    }, 100);
   } else {
     console.error("❌ canvas #app not found!");
   }
@@ -552,26 +580,36 @@ function renderPage(page: string) {
 
     const canvasOnline = document.getElementById("gameApp");
     if (canvasOnline) {
-      // Supprime d’anciens canvas
+      // Supprime d'anciens canvas
       canvasOnline.querySelectorAll("canvas").forEach(c => c.remove());
-      // if (p5Instance) { p5Instance.remove(); p5Instance = null; }
 
-      // ⚡ Lance p5 avec le state online
-      // if (p5Instance) { p5Instance.remove(); p5Instance = null; }
-      //   canvasOnline.querySelectorAll("canvas").forEach(c => c.remove());
+      // Initialize with default state for online game
+      if (!latestState) {
+        latestState = {
+          ball: { x: 400, y: 300, vx: 5, vy: 5 },
+          paddles: { p1: 300, p2: 300 },
+          score: { p1: 0, p2: 0 },
+          ballColor: "#FFFFFF",
+          paddleColor: "#FFFFFF"
+        };
+      }
 
-      p5Instance = new p5(sketch(() => latestState), canvasOnline);
+      p5Instance = new p5(sketch(() => {
+        console.log("🌐 ONLINE SKETCH GETSTATE CALLED:", { ballColor: latestState?.ballColor, paddleColor: latestState?.paddleColor });
+        return latestState;
+      }), canvasOnline);
       resumeSketch();
+      console.log("[Online Game] About to call startOnlineGame()");
       startOnlineGame();
+      console.log("[Online Game] startOnlineGame() called");
 
       // Boutons (online tu peux afficher Start/Pause/Restart/Settings aussi)
-      getStartBtn().style.display    = "block";
-      getPauseBtn().style.display    = "block";
-      getRestartBtn().style.display  = "block";
-      getSettingsBtn().style.display = "block";
+  getStartBtn().style.display    = "block";
+  getPauseBtn().style.display    = "block";
+  getRestartBtn().style.display  = "block";
+  getSettingsBtn().style.display = "none"; // Hidden initially, shown only when paused
 
-      if (ws) wireSettingsPanelOnline(ws);
-    // si tu as une variante online
+  // Settings panel will be wired by startOnlineGame() after WebSocket connection
     } else {
       console.error("❌ canvas #app not found!");
     }
@@ -611,16 +649,27 @@ export function showBoardForTournament() {
   gameContainer.style.display = "block";
 
   if (p5Instance) { p5Instance.remove(); p5Instance = null; }
-  p5Instance = new p5(sketch(() => latestState), canvasRoot);
+  console.log("🎨 CREATING SKETCH FOR LOCAL GAME");
+  p5Instance = new p5(sketch(() => {
+    console.log("🎯 SKETCH GETSTATE CALLED:", { ballColor: latestState?.ballColor, paddleColor: latestState?.paddleColor });
+    return latestState;
+  }), canvasRoot);
+  console.log("🎨 SKETCH CREATED, calling resumeSketch()");
   resumeSketch();
+  console.log("🎨 resumeSketch() called");
 
   getStartBtn().style.display    = "block";   // caché au démarrage du match
   getPauseBtn().style.display    = "block";
   getRestartBtn().style.display  = "block";
-  getSettingsBtn().style.display = "block";
+  getSettingsBtn().style.display = "none"; // Will be updated by updateSettingsButtonVisibility()
   updateCanvasVisibility(true);
+  updateSettingsButtonVisibility(); // Show settings button initially for local game
 
-  wireSettingsPanel();
+  // Wire settings panel for local game (with delay to ensure DOM is ready)
+  setTimeout(() => {
+    console.log("[Settings] Wiring local settings panel after delay");
+    wireSettingsPanel(currentSpeedPercent, localGame, (state) => { latestState = state; });
+  }, 100);
 }
 
 /**
@@ -642,7 +691,7 @@ export function startLocalMatch(
     localGame = new PongGame();
     localGame.setSpeedPercent(currentSpeedPercent); // <— applique la vitesse courante
     localGame.GameOver = false;
-    localGame.Started  = true;
+    localGame.Started  = false; // Don't start automatically, wait for user to click Start
     latestState = {
       ...localGame.state,
       ballColor: localGame.ballColor,
@@ -652,9 +701,21 @@ export function startLocalMatch(
 
   startFreshGame();
 
-  // Start: caché en tournoi (la partie démarre direct)
+  // Start: visible en tournoi (l'utilisateur doit cliquer pour démarrer)
   const startBtn = getStartBtn();
-  startBtn.style.display = "none";
+  startBtn.style.display = "block";
+  startBtn.disabled = false;
+  startBtn.textContent = "Start";
+  startBtn.onclick = () => {
+    if (localGame) {
+      localGame.resetBall();
+      localGame.Started = true;
+      isPaused = false;
+      startBtn.disabled = true;
+      startBtn.style.display = "none";
+      updateSettingsButtonVisibility(); // Hide settings button when game starts
+    }
+  };
 
   // Pause (listeners propres)
   {
@@ -667,6 +728,7 @@ export function startLocalMatch(
       isPaused = !isPaused;
       localGame.Started = !isPaused;
       pauseBtn.textContent = isPaused ? "Play" : "Pause";
+      updateSettingsButtonVisibility();
     };
   }
 
@@ -680,6 +742,7 @@ export function startLocalMatch(
       isPaused = false;
       startFreshGame(); // <- recrée le jeu + setSpeedPercent
       loopStart();
+      updateSettingsButtonVisibility();
     };
   }
 
