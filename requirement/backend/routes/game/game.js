@@ -112,6 +112,48 @@ async function game(fastify, options) {
     return { success: true, gameId: info.lastInsertRowid };
     });
 
+    // Endpoint for game server to save results (no authentication required)
+    fastify.post('/game/server-result', {
+    schema: {
+        body: {
+        type: 'object',
+        required: ['p1Id', 'p2Id', 's1', 's2'],
+        properties: {
+            p1Id: { type: 'integer' },
+            p2Id: { type: 'integer' },
+            s1: { type: 'integer', minimum: 0 },
+            s2: { type: 'integer', minimum: 0 },
+        }
+        },
+        response: {
+        200: {
+            type: 'object',
+            properties: {
+            success: { type: 'boolean' },
+            gameId: { type: 'number' },
+            }
+        }
+        }
+    }
+    }, async (request, reply) => {
+    const { p1Id, p2Id, s1, s2 } = request.body;
+
+    const user1 = db.prepare('SELECT id FROM users WHERE id = ?').get(p1Id);
+    const user2 = db.prepare('SELECT id FROM users WHERE id = ?').get(p2Id);
+
+    if (!user1 || !user2) {
+        return reply.status(400).send({ error: "Utilisateur introuvable" });
+    }
+
+    const game_status = 1; //terminé
+    const info = db.prepare(`
+        INSERT INTO games (fp_id, sp_id, fp_score, sp_score, game_status)
+        VALUES (?, ?, ?, ?, ?)
+    `).run(p1Id, p2Id, s1, s2, game_status);
+
+    return { success: true, gameId: info.lastInsertRowid };
+    });
+
     // 🔒 LOOKUPS STRICTS USERS
     // =========================
     // Trouver un user par *name* (insensible à la casse) — pour ajouter au tournoi

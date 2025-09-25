@@ -21,7 +21,8 @@
   "homepage": "https://github.com/BuyuC/transcendance#readme",
   "dependencies": {
     "p5": "^2.0.3",
-    "ws": "^8.18.3"
+    "ws": "^8.18.3",
+    "axios": "^1.6.0"
   },
   "devDependencies": {
     "@types/node": "^24.1.0",

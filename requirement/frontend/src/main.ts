@@ -8,8 +8,8 @@ import { renderPlay, setupPlayPage } from '../pages/play';
 import { renderChoosePassword } from '../pages/choose-password';
 import { apiBase } from "./utils";
 import { navigate } from "./utils";
-
-import * as Game from '../handlers/game/game-front'; //present dans le docker via shared
+import { cleanupGame } from "../handlers/game/game-front";
+// import * as Game from '../handlers/game/game-front'; //present dans le docker via shared
 
 import * as auth from "./authentification";
 
@@ -72,7 +72,12 @@ async function refreshSession() {
 
 //ftc principale de rendu de la SPA
 export function render() {
+
   const path = window.location.pathname;
+  if (path !== "/play") {
+    console.log("🧹 render(): sortie de /play -> cleanupGame()");
+    cleanupGame();
+  }
   // Lire les paramètres d'URL (token + username)
 	const urlParams = new URLSearchParams(window.location.search);
 	const error = urlParams.get('error');
@@ -207,6 +212,12 @@ document.addEventListener('click', (e) => {
 
 // Handle browser back/forward
 window.addEventListener('popstate', render);
+
+// Handle custom navigate events from game components
+window.addEventListener('navigate', (event: any) => {
+  console.log('Custom navigate event received:', event.detail);
+  render();
+});
 
 // Initial render
 (async () => {

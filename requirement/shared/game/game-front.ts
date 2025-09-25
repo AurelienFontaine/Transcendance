@@ -248,7 +248,17 @@ export function startOnlineGame() {
   const pause = getPauseBtn();
   const restart = getRestartBtn();
 
-  ws = new WebSocket(wsBase());
+  // Get user token for authentication
+  const token = localStorage.getItem("token");
+  const userId = localStorage.getItem("id");
+  
+  if (!token || !userId) {
+    alert("Vous devez être connecté pour jouer en ligne.");
+    return;
+  }
+
+  // Connect with authentication
+  ws = new WebSocket(`${wsBase()}?token=${encodeURIComponent(token)}&userId=${encodeURIComponent(userId)}`);
 
   ws.onmessage = (event) => {
     const msg = JSON.parse(event.data);
@@ -260,6 +270,28 @@ export function startOnlineGame() {
     else if (msg.type === "error" && ws != null) {
       alert(msg.message || "Connexion refusée : toutes les salles sont pleines.");
       ws.close();
+      ws = null;
+      
+      // Clean up game state and redirect to main play page
+      cleanupGame();
+      
+      // Navigate back to the main play page using the proper navigation system
+      if (typeof window !== 'undefined' && window.history) {
+        // Reset the play view state
+        localStorage.setItem("playView", "root");
+        
+        // Navigate back to the main play page (not the game-online sub-page)
+        window.history.pushState({ page: 'root' }, '', '/play');
+        
+        // Trigger a custom event to notify the main app to re-render
+        window.dispatchEvent(new CustomEvent('navigate', { detail: { page: 'root' } }));
+        
+        // Force a page refresh to ensure clean state
+        setTimeout(() => {
+          window.location.reload();
+        }, 100);
+      }
+      
       return;
     }
     else if (msg.type === "state") {
