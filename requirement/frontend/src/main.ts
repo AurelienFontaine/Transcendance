@@ -4,6 +4,8 @@ import "./styles.css";
 //import vues/pages du site (SPA)
 import { renderHome } from '../pages/home';
 import { renderProfile, setupProfilePage } from '../pages/profile';
+import { renderEnhancedProfile, setupEnhancedProfilePage } from '../pages/enhanced-profile';
+import { renderGameSessionDashboard, setupGameSessionDashboard } from '../pages/game-session-dashboard';
 import { renderPlay, setupPlayPage } from '../pages/play';
 import { renderChoosePassword } from '../pages/choose-password';
 import { apiBase } from "./utils";
@@ -25,6 +27,8 @@ import { chatHandler } from '../handlers/chat-handler';
 const routes: Record<string, () => string> = {
 	'/': renderHome,
 	'/profile': renderProfile,
+	'/dashboard': renderEnhancedProfile,
+	'/session-analysis': renderGameSessionDashboard,
 	'/play': renderPlay,
 	'/choose-password': renderChoosePassword,
 	'/chat': renderChat,
@@ -72,7 +76,6 @@ async function refreshSession() {
 
 //ftc principale de rendu de la SPA
 export function render() {
-
   const path = window.location.pathname;
   if (path !== "/play") {
     console.log("🧹 render(): sortie de /play -> cleanupGame()");
@@ -135,8 +138,16 @@ export function render() {
   
     if (path === '/play') {
     // 1) Wire the tournament UI (register players, start tournament, scoring)
-    //    This function should be idempotent (won’t double-attach on re-render).
+    //    This function should be idempotent (won't double-attach on re-render).
       setupPlayPage().catch(err => console.error(err));
+    }
+
+    if (path === '/dashboard') {
+      setupEnhancedProfilePage().catch(err => console.error('Error setting up dashboard:', err));
+    }
+
+    if (path === '/session-analysis') {
+      setupGameSessionDashboard().catch(err => console.error(err));
     }
 
     if (path === '/profile') {

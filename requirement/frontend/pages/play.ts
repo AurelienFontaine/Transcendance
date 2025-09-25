@@ -1,4 +1,5 @@
 // requirement/frontend/pages/play.ts
+// This file now imports from the refactored modules
 import { Tournament } from "../handlers/game/tournament";
 import { __forceRender as forceGameRender, startLocalMatch, showBoardForTournament, cleanupGame } from "../handlers/game/game-front";
 import { apiBase, getCurrentUser } from "../src/utils";
@@ -378,6 +379,7 @@ function resetHandlers(ids: string[]) {
           renderStandings();
           showNextMatch();
         });
+        // Note: Tournament result reporting will be handled by the game completion callback
       };
     }
   }

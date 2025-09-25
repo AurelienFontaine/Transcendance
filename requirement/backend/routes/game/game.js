@@ -247,6 +247,106 @@ fastify.get('/users/:name/stats', async (request, reply) => {
   return { name, wins, losses, total, winrate };
 });
 
+// Enhanced statistics for a user by name
+fastify.get('/users/:name/enhanced-stats', async (request, reply) => {
+  const { name } = request.params;
+
+  const user = db.prepare('SELECT id FROM users WHERE name = ?').get(name);
+  if (!user) return reply.status(404).send({ error: 'Utilisateur introuvable' });
+
+  const uid = user.id;
+
+  // Basic stats
+  const wins = db.prepare(`
+    SELECT COUNT(*) AS c FROM games
+    WHERE (fp_id = ? AND fp_score > sp_score) OR (sp_id = ? AND sp_score > fp_score)
+  `).get(uid, uid).c;
+
+  const losses = db.prepare(`
+    SELECT COUNT(*) AS c FROM games
+    WHERE (fp_id = ? AND fp_score < sp_score) OR (sp_id = ? AND sp_score < fp_score)
+  `).get(uid, uid).c;
+
+  const total = db.prepare(`
+    SELECT COUNT(*) AS c FROM games
+    WHERE fp_id = ? OR sp_id = ?
+  `).get(uid, uid).c;
+
+  const winrate = total ? Math.round((wins / total) * 100) : 0;
+
+  // Enhanced stats
+  const allGames = db.prepare(`
+    SELECT 
+      CASE WHEN fp_id = ? THEN fp_score ELSE sp_score END as my_score,
+      CASE WHEN fp_id = ? THEN sp_score ELSE fp_score END as opp_score,
+      date,
+      CASE WHEN (fp_id = ? AND fp_score > sp_score) OR (sp_id = ? AND sp_score > fp_score) THEN 1 ELSE 0 END as is_win
+    FROM games 
+    WHERE fp_id = ? OR sp_id = ?
+    ORDER BY datetime(date) DESC
+  `).all(uid, uid, uid, uid, uid, uid);
+
+  let totalPointsScored = 0;
+  let totalPointsConceded = 0;
+  let bestScore = 0;
+  let worstScore = Infinity;
+  let currentStreak = 0;
+  let bestStreak = 0;
+  let worstStreak = 0;
+  let tempStreak = 0;
+
+  allGames.forEach(game => {
+    const myScore = game.my_score;
+    const isWin = game.is_win;
+
+    totalPointsScored += myScore;
+    totalPointsConceded += game.opp_score;
+    bestScore = Math.max(bestScore, myScore);
+    worstScore = Math.min(worstScore, myScore);
+
+    if (isWin) {
+      tempStreak = tempStreak >= 0 ? tempStreak + 1 : 1;
+    } else {
+      tempStreak = tempStreak <= 0 ? tempStreak - 1 : -1;
+    }
+
+    if (tempStreak > 0) {
+      bestStreak = Math.max(bestStreak, tempStreak);
+    } else if (tempStreak < 0) {
+      worstStreak = Math.min(worstStreak, tempStreak);
+    }
+  });
+
+  currentStreak = tempStreak;
+  const averageScore = total > 0 ? totalPointsScored / total : 0;
+  const pointsRatio = totalPointsScored + totalPointsConceded > 0 ? 
+    (totalPointsScored / (totalPointsScored + totalPointsConceded)) * 100 : 0;
+
+  // Recent performance (last 10 games)
+  const recentGames = allGames.slice(0, 10);
+  const recentWins = recentGames.filter(g => g.is_win).length;
+  const recentWinRate = recentGames.length > 0 ? (recentWins / recentGames.length) * 100 : 0;
+  const recentAvgScore = recentGames.length > 0 ? 
+    recentGames.reduce((sum, g) => sum + g.my_score, 0) / recentGames.length : 0;
+
+  return {
+    basic: { name, wins, losses, total, winrate },
+    enhanced: {
+      totalPointsScored,
+      totalPointsConceded,
+      pointsRatio: Math.round(pointsRatio * 100) / 100,
+      averageScore: Math.round(averageScore * 100) / 100,
+      bestScore,
+      worstScore: worstScore === Infinity ? 0 : worstScore,
+      currentStreak,
+      bestStreak,
+      worstStreak,
+      recentWinRate: Math.round(recentWinRate * 100) / 100,
+      recentAvgScore: Math.round(recentAvgScore * 100) / 100
+    }
+  };
+});
+
 // Historique de match d’un user par nom
     fastify.get('/users/:name/history', async (request, reply) => {
     const name = request.params.name;

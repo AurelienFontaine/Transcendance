@@ -1,5 +1,5 @@
 // pages/profile.ts
-import { apiBase } from "../src/utils";
+import { apiBase, navigate } from "../src/utils";
 
 export function renderProfile() {
   return `
@@ -66,19 +66,12 @@ export function renderProfile() {
         <button style="padding: 10px 20px; background-color: #4285F4; color: white; border: none; border-radius: 5px;">Se connecter avec Google</button>
       </a>
 
-      <!-- Boutons pour afficher stats / historique -->
-      <div class="flex justify-center gap-4 mt-6">
-        <button id="showStatsBtn" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded">
-          Voir mes stats
-        </button>
-        <button id="showHistoryBtn" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded">
-          Voir mon historique
+      <!-- Dashboard Button (only visible when logged in) -->
+      <div id="dashboardSection" class="flex justify-center mt-6" style="display:none;">
+        <button id="showDashboardBtn" class="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white px-6 py-3 rounded-lg font-semibold text-lg shadow-lg">
+          📊 Dashboard Avancé
         </button>
       </div>
-
-      <!-- Conteneurs masqués -->
-      <div id="statsContent" class="mt-4 hidden"></div>
-      <div id="historyContent" class="mt-4 hidden space-y-4"></div>
   `;
 }
 
@@ -118,148 +111,52 @@ async function ensureUserInfo() {
 
 
 export async function setupProfilePage() {
-  const statsDiv = document.getElementById('statsContent') as HTMLElement | null;
-  const historyDiv = document.getElementById('historyContent') as HTMLElement | null;
-  const statsBtn = document.getElementById('showStatsBtn') as HTMLButtonElement | null;
-  const historyBtn = document.getElementById('showHistoryBtn') as HTMLButtonElement | null;
-
-  if (!statsDiv || !historyDiv || !statsBtn || !historyBtn) return;
-  const token = localStorage.getItem('token');
-  if (!token) {
-    historyDiv.innerHTML = `<em class="text-gray-400">Connectez-vous pour voir votre historique.</em>`;
-    return;
-  }
-  const user = await ensureUserInfo();
-  if (!user) {
-    historyDiv.innerHTML = `<em class="text-gray-400">Erreur chargement utilisateur.</em>`;
-    return;
-  }
-
-  const showWelcome = document.getElementById('showWelcome') as HTMLElement | null;
+  const dashboardSection = document.getElementById('dashboardSection') as HTMLElement | null;
+  const userInfo = document.getElementById('userInfo') as HTMLElement | null;
   const logoutBtn = document.getElementById('logoutButton') as HTMLButtonElement | null;
 
+  if (!dashboardSection) return;
+
+  const token = localStorage.getItem('token');
   const realName = (localStorage.getItem('name') || '').trim();
   const username = (localStorage.getItem('username') || realName).trim();
 
-  // Si pas connecté (pas de token ou pas de realName valide)
-  if (!token || !realName) {
-    if (showWelcome) {
-      showWelcome.classList.add('hidden');
-      showWelcome.textContent = '';
+  // Si pas connecté (pas de token ou pas d'identifiant valide)
+  if (!token || (!realName && !username)) {
+    // Hide dashboard section
+    dashboardSection.style.display = 'none';
+    
+    if (userInfo) {
+      userInfo.style.display = 'none';
     }
-    if (logoutBtn) logoutBtn.classList.add('hidden');
-    historyDiv.innerHTML = `<em class="text-gray-400">Connectez-vous pour voir votre historique.</em>`;
+    if (logoutBtn) logoutBtn.style.display = 'none';
     return;
   }
 
-  // Si connecté → afficher bienvenue + bouton logout
-  if (username) {
-    if (showWelcome) {
-      showWelcome.classList.remove('hidden');
-      showWelcome.textContent = `Bienvenue, ${username} !`;
+  // Si connecté → afficher bienvenue + bouton logout + dashboard
+  const displayName = username || realName;
+  if (displayName) {
+    // Show dashboard section
+    dashboardSection.style.display = 'flex';
+    
+    if (userInfo) {
+      userInfo.style.display = 'block';
+      const currentUsername = document.getElementById('currentUsername');
+      if (currentUsername) {
+        currentUsername.textContent = displayName;
+      }
     }
-    if (logoutBtn) logoutBtn.classList.remove('hidden');
+    if (logoutBtn) logoutBtn.style.display = 'block';
   }
 
-  // Charger l’historique
-  historyDiv.innerHTML = `<span class="text-gray-300">Chargement…</span>`;
-  fetch(`${apiBase()}/users/${encodeURIComponent(realName)}/history`, {
-    headers: { Authorization: `Bearer ${token}` }
-  })
-    .then((res) => {
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      return res.json();
-    })
-    .then((data) => {
-      const matches = Array.isArray(data?.matches) ? data.matches : [];
-      if (!matches.length) {
-        historyDiv.innerHTML = `<em class="text-gray-400">Aucun match enregistré pour ${username}.</em>`;
-        return;
-      }
-
-      let wins = 0, losses = 0;
-      let pointsGagnes = 0, pointsPris = 0;
-
-      matches.forEach((m: any) => {
-        const isVictory = m.result === "W";
-        if (isVictory) {
-          wins++;
-          pointsGagnes += 5;
-          pointsPris += m.oppScore;
-        } else {
-          losses++;
-          pointsGagnes += m.myScore;
-          pointsPris += 5;
-        }
-      });
-
-      const ppmPris =  (pointsPris / (wins + losses)).toFixed(2);
-      const ppmMarque = (pointsGagnes / (wins + losses)).toFixed(2);
-      const ratioPris = (pointsPris / (pointsPris + pointsGagnes) * 100).toFixed(2);
-      const ratioMarque = (pointsGagnes / (pointsPris + pointsGagnes) * 100).toFixed(2);
-      const ratioWin = losses === 0 ? wins : ((wins / (losses + wins)) * 100).toFixed(2);
-
-      statsDiv.innerHTML = `
-        <div class="px-3 py-2 bg-gray-700 text-white rounded-lg shadow space-y-1">
-          <div class="text-sm"><strong>Wins:</strong> ${wins} | 
-            <strong>Loses:</strong> ${losses} | 
-            <strong>Ratio:</strong> ${ratioWin}%
-          </div>
-          <div class="text-sm"><strong>Points gagnés:</strong> ${pointsGagnes} | 
-            <strong>Points perdus:</strong> ${pointsPris}</div>
-          <div class="text-sm"><strong>% points marqués :</strong> ${ratioMarque}% | 
-            <strong>% points pris :</strong> ${ratioPris}%</div>
-          <div class="text-sm"><strong>Moy. points marqués :</strong> ${ppmMarque} | 
-            <strong>Moy. points pris :</strong> ${ppmPris}</div>
-        </div>
-      `;
-
-      const last10 = [...matches]
-        .sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime())
-        .slice(0, 10);
-
-      const html = last10
-        .map((m: any) => {
-          const isVictory = m.result === 'W';
-          const resultLabel = isVictory ? 'Victoire' : 'Défaite';
-          const cardBg = isVictory ? 'bg-green-200' : 'bg-red-200';
-          const borderClr = isVictory ? 'border-green-400' : 'border-red-400';
-          const when = new Date(m.date).toLocaleString();
-
-          return `
-            <div class="${cardBg} border ${borderClr} rounded-lg p-4 shadow space-y-2">
-              <div class="flex flex-wrap items-center gap-3">
-                <span class="font-bold text-black">${resultLabel}</span>
-                <span class="opacity-60 text-black">•</span>
-                <span class="text-black"><span class="font-semibold">Moi :</span> ${m.me}</span>
-                <span class="opacity-60 text-black">•</span>
-                <span class="text-black"><span class="font-semibold">Score :</span> ${m.myScore} - ${m.oppScore}</span>
-                <span class="opacity-60 text-black">•</span>
-                <span class="text-black"><span class="font-semibold">Adversaire :</span> ${m.opponent}</span>
-              </div>
-              <div class="text-xs opacity-70 text-black">${when}</div>
-            </div>
-          `;
-        })
-        .join('');
-
-      historyDiv.innerHTML = html;
-    })
-    .catch((err) => {
-      console.error(err);
-      historyDiv.innerHTML = `<span class="text-red-400">Erreur de chargement de l’historique.</span>`;
+  // Dashboard button event listener
+  const dashboardBtn = document.getElementById('showDashboardBtn');
+  if (dashboardBtn) {
+    dashboardBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      navigate('/dashboard');
     });
-
-    // Affichage Historique et Stats
-    statsBtn.addEventListener("click", () => {
-      const hidden = statsDiv.classList.toggle("hidden");
-      statsBtn.textContent = hidden ? "Voir mes stats" : "Cacher mes stats";
-    });
-
-    historyBtn.addEventListener("click", () => {
-      const hidden = historyDiv.classList.toggle("hidden");
-      historyBtn.textContent = hidden ? "Voir mon historique" : "Cacher mon historique";
-    });
+  }
 }
 
 
