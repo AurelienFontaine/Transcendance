@@ -228,18 +228,21 @@ fastify.get('/users/:name/stats', async (request, reply) => {
   // victoires
   const wins = db.prepare(`
     SELECT COUNT(*) AS c FROM games
-    WHERE (fp_id = ? AND fp_score > sp_score) OR (sp_id = ? AND sp_score > fp_score)
+    WHERE ((fp_id = ? AND fp_score > sp_score) OR (sp_id = ? AND sp_score > fp_score))
+      AND fp_id != sp_id
   `).get(uid, uid).c;
 
   // défaites
   const losses = db.prepare(`
     SELECT COUNT(*) AS c FROM games
-    WHERE (fp_id = ? AND fp_score < sp_score) OR (sp_id = ? AND sp_score < fp_score)
+    WHERE ((fp_id = ? AND fp_score < sp_score) OR (sp_id = ? AND sp_score < fp_score))
+      AND fp_id != sp_id
   `).get(uid, uid).c;
 
   const total = db.prepare(`
     SELECT COUNT(*) AS c FROM games
-    WHERE fp_id = ? OR sp_id = ?
+    WHERE (fp_id = ? OR sp_id = ?)
+      AND fp_id != sp_id
   `).get(uid, uid).c;
 
   const winrate = total ? Math.round((wins / total) * 100) : 0;
@@ -259,17 +262,20 @@ fastify.get('/users/:name/enhanced-stats', async (request, reply) => {
   // Basic stats
   const wins = db.prepare(`
     SELECT COUNT(*) AS c FROM games
-    WHERE (fp_id = ? AND fp_score > sp_score) OR (sp_id = ? AND sp_score > fp_score)
+    WHERE ((fp_id = ? AND fp_score > sp_score) OR (sp_id = ? AND sp_score > fp_score))
+      AND fp_id != sp_id
   `).get(uid, uid).c;
 
   const losses = db.prepare(`
     SELECT COUNT(*) AS c FROM games
-    WHERE (fp_id = ? AND fp_score < sp_score) OR (sp_id = ? AND sp_score < fp_score)
+    WHERE ((fp_id = ? AND fp_score < sp_score) OR (sp_id = ? AND sp_score < fp_score))
+      AND fp_id != sp_id
   `).get(uid, uid).c;
 
   const total = db.prepare(`
     SELECT COUNT(*) AS c FROM games
-    WHERE fp_id = ? OR sp_id = ?
+    WHERE (fp_id = ? OR sp_id = ?)
+      AND fp_id != sp_id
   `).get(uid, uid).c;
 
   const winrate = total ? Math.round((wins / total) * 100) : 0;
@@ -282,7 +288,7 @@ fastify.get('/users/:name/enhanced-stats', async (request, reply) => {
       date,
       CASE WHEN (fp_id = ? AND fp_score > sp_score) OR (sp_id = ? AND sp_score > fp_score) THEN 1 ELSE 0 END as is_win
     FROM games 
-    WHERE fp_id = ? OR sp_id = ?
+    WHERE (fp_id = ? OR sp_id = ?) AND fp_id != sp_id
     ORDER BY datetime(date) DESC
   `).all(uid, uid, uid, uid, uid, uid);
 
@@ -369,7 +375,7 @@ fastify.get('/users/:name/enhanced-stats', async (request, reply) => {
         FROM games g
         JOIN users u1 ON u1.id = g.fp_id
         JOIN users u2 ON u2.id = g.sp_id
-        WHERE g.fp_id = ? OR g.sp_id = ?
+        WHERE (g.fp_id = ? OR g.sp_id = ?) AND g.fp_id != g.sp_id
         ORDER BY datetime(g.date) DESC
         LIMIT 50
     `).all(user.id, user.id);
