@@ -208,17 +208,26 @@ export function cleanupGame() {
 // wireSettingsPanelOnline moved to game-ui-helpers.ts
 
 // ---------------- ONLINE ----------------
-export function startOnlineGame() {
+export async function startOnlineGame() {
   mode = "online";
 
   const pause = getPauseBtn();
   const restart = getRestartBtn();
 
+  // Wait a bit for authentication to be properly set up
+  await new Promise(resolve => setTimeout(resolve, 100));
+
   // Get user token for authentication
   const token = localStorage.getItem("token");
   const userId = localStorage.getItem("id");
   
+  console.log("[ONLINE AUTH] Token:", token ? "present" : "missing");
+  console.log("[ONLINE AUTH] UserId:", userId ? "present" : "missing");
+  console.log("[ONLINE AUTH] Full token:", token);
+  console.log("[ONLINE AUTH] Full userId:", userId);
+  
   if (!token || !userId) {
+    console.error("[ONLINE AUTH] Missing authentication data");
     alert("Vous devez être connecté pour jouer en ligne.");
     return;
   }
@@ -283,7 +292,9 @@ export function startOnlineGame() {
       
       latestState = {
         ...msg.state,
-        ...currentColors
+        ...currentColors,
+        isPlayer1Current: playerIndex === 0,
+        isPlayer2Current: playerIndex === 1
       };
       isPaused = msg.paused;
       if (pause) pause.textContent = isPaused ? "Play" : "Pause";
@@ -310,37 +321,35 @@ export function startOnlineGame() {
       console.log("[STATE] before: startBtn.disabled=", startBtn.disabled, "onclick=", !!startBtn.onclick);
 
       if (msg.players < 2) {
-        // Pas assez de joueurs → bouton visible mais inactif (message d’attente)
+        // Pas assez de joueurs → bouton visible mais inactif (message d'attente)
         startBtn.style.display = "inline-block";
         startBtn.disabled = true;
         startBtn.textContent = "Waiting for player 2...";
-        startBtn.onclick = null;                       // ← aucun handler
-        startBtn.style.pointerEvents = "none";         // ← ceinture et bretelles
+        startBtn.onclick = null;
+        startBtn.style.pointerEvents = "none";
+        console.log("[STATE] Waiting for player 2...");
       } else if (msg.paused) {
-        // 2 joueurs et partie en pause → Start activable
+        // 2 joueurs et partie en pause → Resume activable
         startBtn.style.display = "inline-block";
         startBtn.disabled = false;
-        startBtn.textContent = "Start";
+        startBtn.textContent = "Resume";
         startBtn.style.pointerEvents = "auto";
-
-        // IMPORTANT: recâblage propre (on écrase tout handler précédent)
         startBtn.onclick = () => {
-          // Garde-fou côté client : revalide avant d’envoyer
-          if (msg.players >= 2 && ws?.readyState === WebSocket.OPEN) {
-            console.log("[START] send 'start'");
-            ws.send(JSON.stringify({ type: "start" }));
+          if (ws?.readyState === WebSocket.OPEN) {
+            console.log("[RESUME] send 'pause' to resume");
+            ws.send(JSON.stringify({ type: "pause" }));
             startBtn.disabled = true;
             startBtn.style.display = "none";
-          } else {
-            console.warn("[START] blocked at click-time: players<2 or ws not open");
           }
         };
+        console.log("[STATE] Ready to resume - 2 players connected");
       } else {
         // Partie en cours → Start caché
         startBtn.style.display = "none";
         startBtn.disabled = true;
         startBtn.onclick = null;
         startBtn.style.pointerEvents = "none";
+        console.log("[STATE] Game in progress - hiding start button");
       }
 
       console.log("[STATE] after: startBtn.disabled=", startBtn.disabled, "onclick=", !!startBtn.onclick, "display=", startBtn.style.display);
@@ -349,32 +358,32 @@ export function startOnlineGame() {
   };
 
   ws.onopen = () => {
+    console.log("[WebSocket] Connection opened successfully");
     const startBtn = getStartBtn();
     startBtn.style.display = "inline-block";
     startBtn.disabled = true;
+    startBtn.textContent = "Waiting for player 2...";
     startBtn.onclick = null; 
 
-    restart?.addEventListener("click", () => {
-      if (ws?.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({ type: "reset" }));
-      }
-    });
+    // Set up restart button
+    if (restart) {
+      restart.onclick = () => {
+        if (ws?.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: "reset" }));
+        }
+      };
+    }
 
-    pause?.addEventListener("click", () => {
-      if (ws?.readyState !== WebSocket.OPEN) return;
-      isPaused = !isPaused;
-      ws.send(JSON.stringify({ type: "pause" }));
-      if (pause) pause.textContent = isPaused ? "Play" : "Pause";
-      updateSettingsButtonVisibility();
-    });
-
-    startBtn.onclick = () => {
-      if (ws?.readyState === WebSocket.OPEN && !startBtn.disabled) {
-        ws.send(JSON.stringify({ type: "start" }));
-        startBtn.disabled = true;
-        startBtn.style.display = "none";
-      }
-    };
+    // Set up pause button
+    if (pause) {
+      pause.onclick = () => {
+        if (ws?.readyState !== WebSocket.OPEN) return;
+        isPaused = !isPaused;
+        ws.send(JSON.stringify({ type: "pause" }));
+        pause.textContent = isPaused ? "Play" : "Pause";
+        updateSettingsButtonVisibility();
+      };
+    }
   };
 
   ws.onclose = () => {
@@ -385,10 +394,12 @@ export function startOnlineGame() {
       // Wire settings panel for online game (with delay to ensure DOM is ready)
       setTimeout(() => {
         console.log("[Settings] Wiring online settings panel after delay");
-        wireSettingsPanelOnline(ws, currentSpeedPercent, (newState) => { 
-          console.log("🔧 UPDATING latestState FROM:", latestState, "TO:", newState);
-          latestState = newState; 
-        });
+        if (ws) {
+          wireSettingsPanelOnline(ws, currentSpeedPercent, (newState) => { 
+            console.log("🔧 UPDATING latestState FROM:", latestState, "TO:", newState);
+            latestState = newState; 
+          });
+        }
       }, 100);
 }
 
@@ -403,7 +414,13 @@ export function startLocalGame() {
   latestState = {
     ...localGame.state,
     ballColor: localGame.ballColor,
-    paddleColor: localGame.paddleColor
+    paddleColor: localGame.paddleColor,
+    player1Name: "Player 1",
+    player2Name: "Player 2",
+    player1Controls: "W/S",
+    player2Controls: "↑/↓",
+    isPlayer1Current: true,
+    isPlayer2Current: true
   };
 
   // Create sketch for local game
@@ -479,7 +496,15 @@ export function startLocalGame() {
   function loopStart() {
     localLoop = window.setInterval(() => {
       if (localGame) {
-        latestState = updateLocalGameState(localGame, isPaused);
+        latestState = {
+          ...updateLocalGameState(localGame, isPaused),
+          player1Name: "Player 1",
+          player2Name: "Player 2",
+          player1Controls: "W/S",
+          player2Controls: "↑/↓",
+          isPlayer1Current: true,
+          isPlayer2Current: true
+        };
         console.log("🔄 LOCAL LOOP STATE:", { ballColor: latestState.ballColor, paddleColor: latestState.paddleColor });
 
         if (localGame.GameOver && !quickReported) {
@@ -565,7 +590,7 @@ function renderPage(page: string) {
     // Wire settings panel for local game (with delay to ensure DOM is ready)
     setTimeout(() => {
       console.log("[Settings] Wiring local settings panel after delay");
-      wireSettingsPanel(currentSpeedPercent, localGame, (state) => { latestState = state; });
+      wireSettingsPanel(currentSpeedPercent, localGame, (state) => { latestState = state; }, (speed) => { currentSpeedPercent = speed; });
     }, 100);
   } else {
     console.error("❌ canvas #app not found!");
@@ -584,15 +609,19 @@ function renderPage(page: string) {
       canvasOnline.querySelectorAll("canvas").forEach(c => c.remove());
 
       // Initialize with default state for online game
-      if (!latestState) {
-        latestState = {
-          ball: { x: 400, y: 300, vx: 5, vy: 5 },
-          paddles: { p1: 300, p2: 300 },
-          score: { p1: 0, p2: 0 },
-          ballColor: "#FFFFFF",
-          paddleColor: "#FFFFFF"
-        };
-      }
+      latestState = {
+        ball: { x: 400, y: 300 },
+        paddles: { p1: 300, p2: 300 },
+        score: { p1: 0, p2: 0 },
+        ballColor: "#FFFFFF",
+        paddleColor: "#FFFFFF",
+        player1Name: "Player 1",
+        player2Name: "Player 2",
+        player1Controls: "↑/↓",
+        player2Controls: "↑/↓",
+        isPlayer1Current: false,
+        isPlayer2Current: false
+      };
 
       p5Instance = new p5(sketch(() => {
         console.log("🌐 ONLINE SKETCH GETSTATE CALLED:", { ballColor: latestState?.ballColor, paddleColor: latestState?.paddleColor });
@@ -600,8 +629,11 @@ function renderPage(page: string) {
       }), canvasOnline);
       resumeSketch();
       console.log("[Online Game] About to call startOnlineGame()");
-      startOnlineGame();
-      console.log("[Online Game] startOnlineGame() called");
+      startOnlineGame().then(() => {
+        console.log("[Online Game] startOnlineGame() completed");
+      }).catch((error) => {
+        console.error("[Online Game] startOnlineGame() failed:", error);
+      });
 
       // Boutons (online tu peux afficher Start/Pause/Restart/Settings aussi)
   getStartBtn().style.display    = "block";
@@ -668,7 +700,7 @@ export function showBoardForTournament() {
   // Wire settings panel for local game (with delay to ensure DOM is ready)
   setTimeout(() => {
     console.log("[Settings] Wiring local settings panel after delay");
-    wireSettingsPanel(currentSpeedPercent, localGame, (state) => { latestState = state; });
+    wireSettingsPanel(currentSpeedPercent, localGame, (state) => { latestState = state; }, (speed) => { currentSpeedPercent = speed; });
   }, 100);
 }
 
@@ -696,6 +728,12 @@ export function startLocalMatch(
       ...localGame.state,
       ballColor: localGame.ballColor,
       paddleColor: localGame.paddleColor,
+      player1Name: p1,
+      player2Name: p2,
+      player1Controls: "W/S",
+      player2Controls: "↑/↓",
+      isPlayer1Current: true,
+      isPlayer2Current: true
     };
   };
 
@@ -757,6 +795,12 @@ export function startLocalMatch(
         ...localGame.state,
         ballColor: localGame.ballColor,
         paddleColor: localGame.paddleColor,
+        player1Name: p1,
+        player2Name: p2,
+        player1Controls: "W/S",
+        player2Controls: "↑/↓",
+        isPlayer1Current: true,
+        isPlayer2Current: true
       };
 
       if (localGame.GameOver) {

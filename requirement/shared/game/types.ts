@@ -29,6 +29,12 @@ export type GameState = {
   score: { p1: number; p2: number };
   ballColor?: string;
   paddleColor?: string;
+  player1Name?: string;
+  player2Name?: string;
+  player1Controls?: string;
+  player2Controls?: string;
+  isPlayer1Current?: boolean;
+  isPlayer2Current?: boolean;
 };
 
 export type SettingsMessage = {

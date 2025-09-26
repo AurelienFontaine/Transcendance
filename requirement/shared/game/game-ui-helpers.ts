@@ -5,7 +5,7 @@ export function getRestartBtn() { return document.getElementById("restartBtn")  
 export function getSettingsBtn(){ return document.getElementById("settingsBtn") as HTMLButtonElement; }
 
 // Settings panel management
-export function wireSettingsPanel(currentSpeedPercent: number, localGame: any, setLatestState: (state: any) => void) {
+export function wireSettingsPanel(currentSpeedPercent: number, localGame: any, setLatestState: (state: any) => void, updateCurrentSpeedPercent?: (speed: number) => void) {
   const panel      = document.getElementById("settingsPanel");
   const slider     = document.getElementById("speedSlider") as HTMLInputElement | null;
   const speedValue = document.getElementById("speedValue");
@@ -26,6 +26,9 @@ export function wireSettingsPanel(currentSpeedPercent: number, localGame: any, s
     const p = Math.max(0, Math.min(100, Math.round(Number(slider.value) || 0)));
     speedValue.textContent = `${p}%`;
     console.log("🔧 LOCAL SLIDER CHANGED:", p);
+    if (updateCurrentSpeedPercent) {
+      updateCurrentSpeedPercent(p);
+    }
     if (localGame) {
       console.log("🔧 APPLYING TO LOCAL GAME");
       localGame.setSpeedPercent(p);

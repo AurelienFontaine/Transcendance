@@ -301,7 +301,10 @@ fastify.get('/users/:name/enhanced-stats', async (request, reply) => {
   let worstStreak = 0;
   let tempStreak = 0;
 
-  allGames.forEach(game => {
+  // Process games in chronological order (oldest first) for streak calculation
+  const gamesInOrder = [...allGames].reverse();
+  
+  gamesInOrder.forEach(game => {
     const myScore = game.my_score;
     const isWin = game.is_win;
 
@@ -447,6 +450,23 @@ fastify.get('/users/:name/enhanced-stats', async (request, reply) => {
             return reply.status(404).send({ error: 'Utilisateur introuvable' });
         }
         return { id: user.id, name: user.name, display: user.username || user.name };
+    });
+
+    // Get user info by ID (for game server)
+    fastify.get('/users/:id/info', async (request, reply) => {
+        const id = parseInt(request.params.id);
+        if (isNaN(id)) {
+            return reply.status(400).send({ error: 'Invalid user ID' });
+        }
+        const user = db.prepare(`
+            SELECT id, username, name
+            FROM users
+            WHERE id = ?
+        `).get(id);
+        if (!user) {
+            return reply.status(404).send({ error: 'Utilisateur introuvable' });
+        }
+        return { id: user.id, name: user.name, username: user.username };
     });
 
 }

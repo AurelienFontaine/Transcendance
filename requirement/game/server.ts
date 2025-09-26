@@ -218,7 +218,7 @@ wss.on("connection", (ws, req) => {
 });
 
 // --- Game loop ---
-setInterval(() => {
+setInterval(async () => {
   for (const room of rooms) {
     const wasGameOver = room.game.GameOver;
     room.game.update();
@@ -229,9 +229,59 @@ setInterval(() => {
       saveGameResult(room, room.game.state.score.p1, room.game.state.score.p2);
     }
 
+    // Get user names from database
+    let player1Name = "Player 1";
+    let player2Name = "Player 2";
+    
+    if (room.userIds[0]) {
+      try {
+        console.log(`[DEBUG] Fetching name for user ID: ${room.userIds[0]}`);
+        // Get user info by ID, then get display name
+        const userResponse = await axios.get(`http://backend:3000/users/${room.userIds[0]}/info`);
+        console.log(`[DEBUG] User response:`, userResponse.data);
+        if (userResponse.data && userResponse.data.name) {
+          const displayResponse = await axios.get(`http://backend:3000/users/${userResponse.data.name}/display`);
+          console.log(`[DEBUG] Display response:`, displayResponse.data);
+          if (displayResponse.data && displayResponse.data.display) {
+            player1Name = displayResponse.data.display;
+            console.log(`[DEBUG] Set player1Name to: ${player1Name}`);
+          }
+        }
+      } catch (error: any) {
+        console.warn(`Failed to get name for user ${room.userIds[0]}:`, error.message);
+      }
+    }
+    
+    if (room.userIds[1]) {
+      try {
+        console.log(`[DEBUG] Fetching name for user ID: ${room.userIds[1]}`);
+        // Get user info by ID, then get display name
+        const userResponse = await axios.get(`http://backend:3000/users/${room.userIds[1]}/info`);
+        console.log(`[DEBUG] User response:`, userResponse.data);
+        if (userResponse.data && userResponse.data.name) {
+          const displayResponse = await axios.get(`http://backend:3000/users/${userResponse.data.name}/display`);
+          console.log(`[DEBUG] Display response:`, displayResponse.data);
+          if (displayResponse.data && displayResponse.data.display) {
+            player2Name = displayResponse.data.display;
+            console.log(`[DEBUG] Set player2Name to: ${player2Name}`);
+          }
+        }
+      } catch (error: any) {
+        console.warn(`Failed to get name for user ${room.userIds[1]}:`, error.message);
+      }
+    }
+
     const state = {
       type: 'state',
-      state: room.game.state,
+      state: {
+        ...room.game.state,
+        player1Name,
+        player2Name,
+        player1Controls: "↑/↓",
+        player2Controls: "↑/↓",
+        isPlayer1Current: false, // Will be set per client
+        isPlayer2Current: false  // Will be set per client
+      },
       paused: !room.game.Started,
       players: room.clients.length,
       roomId: room.id,

@@ -7,10 +7,12 @@
     "start": "node index.js"
   },
   "dependencies": {
-    "fastify": "^4.15.0",
     "@fastify/cors": "^8.2.0",
-    "better-sqlite3": "^8.0.0",
     "@fastify/jwt": "^6.0.0",
-    "bcrypt": "^5.1.0"
+    "@fastify/multipart": "^9.2.1",
+    "axios": "^1.12.2",
+    "bcrypt": "^5.1.0",
+    "better-sqlite3": "^8.0.0",
+    "fastify": "^4.15.0"
   }
 }
