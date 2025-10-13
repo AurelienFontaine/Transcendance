@@ -6,7 +6,7 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start-server": "ts-node server.ts",
-    "dev": "vite"
+    "dev": "ts-node server.ts"
   },
   "repository": {
     "type": "git",
@@ -21,7 +21,8 @@
   "homepage": "https://github.com/BuyuC/transcendance#readme",
   "dependencies": {
     "p5": "^2.0.3",
-    "ws": "^8.18.3"
+    "ws": "^8.18.3",
+    "axios": "^1.6.0"
   },
   "devDependencies": {
     "@types/node": "^24.1.0",
@@ -29,7 +30,6 @@
     "@types/ws": "^8.18.1",
     "live-server": "^1.2.2",
     "ts-node": "^10.9.2",
-    "typescript": "^5.8.3",
-    "vite": "^7.0.5"
+    "typescript": "^5.8.3"
   }
 }

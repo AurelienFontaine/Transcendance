@@ -112,6 +112,48 @@ async function game(fastify, options) {
     return { success: true, gameId: info.lastInsertRowid };
     });
 
+     // Endpoint for game server to save results (no authentication required)
+    fastify.post('/game/server-result', {
+    schema: {
+        body: {
+        type: 'object',
+        required: ['p1Id', 'p2Id', 's1', 's2'],
+        properties: {
+            p1Id: { type: 'integer' },
+            p2Id: { type: 'integer' },
+            s1: { type: 'integer', minimum: 0 },
+            s2: { type: 'integer', minimum: 0 },
+        }
+        },
+        response: {
+        200: {
+            type: 'object',
+            properties: {
+            success: { type: 'boolean' },
+            gameId: { type: 'number' },
+            }
+        }
+        }
+    }
+    }, async (request, reply) => {
+    const { p1Id, p2Id, s1, s2 } = request.body;
+
+    const user1 = db.prepare('SELECT id FROM users WHERE id = ?').get(p1Id);
+    const user2 = db.prepare('SELECT id FROM users WHERE id = ?').get(p2Id);
+
+    if (!user1 || !user2) {
+        return reply.status(400).send({ error: "Utilisateur introuvable" });
+    }
+
+    const game_status = 1; //terminé
+    const info = db.prepare(`
+        INSERT INTO games (fp_id, sp_id, fp_score, sp_score, game_status)
+        VALUES (?, ?, ?, ?, ?)
+    `).run(p1Id, p2Id, s1, s2, game_status);
+
+    return { success: true, gameId: info.lastInsertRowid };
+    });
+
     // 🔒 LOOKUPS STRICTS USERS
     // =========================
     // Trouver un user par *name* (insensible à la casse) — pour ajouter au tournoi
@@ -123,6 +165,21 @@ async function game(fastify, options) {
             WHERE name = ? COLLATE NOCASE
         `).get(name);
         if (!user) return reply.status(404).send({ error: 'name not found' });
+        return { id: user.id, name: user.name, username: user.username };
+    });
+
+    // Récupérer les informations d'un utilisateur par son ID (pour le serveur de jeu)
+    fastify.get('/users/:id/info', async (request, reply) => {
+        const userId = parseInt(request.params.id);
+        if (isNaN(userId)) {
+            return reply.status(400).send({ error: 'Invalid user ID' });
+        }
+        
+        const user = db.prepare('SELECT id, name, username FROM users WHERE id = ?').get(userId);
+        if (!user) {
+            return reply.status(404).send({ error: 'User not found' });
+        }
+        
         return { id: user.id, name: user.name, username: user.username };
     });
 
@@ -187,22 +244,131 @@ fastify.get('/users/:name/stats', async (request, reply) => {
   const wins = db.prepare(`
     SELECT COUNT(*) AS c FROM games
     WHERE (fp_id = ? AND fp_score > sp_score) OR (sp_id = ? AND sp_score > fp_score)
+      AND fp_id != sp_id
   `).get(uid, uid).c;
 
   // défaites
   const losses = db.prepare(`
     SELECT COUNT(*) AS c FROM games
     WHERE (fp_id = ? AND fp_score < sp_score) OR (sp_id = ? AND sp_score < fp_score)
+      AND fp_id != sp_id
   `).get(uid, uid).c;
 
   const total = db.prepare(`
     SELECT COUNT(*) AS c FROM games
     WHERE fp_id = ? OR sp_id = ?
+      AND fp_id != sp_id
   `).get(uid, uid).c;
 
   const winrate = total ? Math.round((wins / total) * 100) : 0;
 
   return { name, wins, losses, total, winrate };
+});
+
+// Enhanced statistics for a user by name
+fastify.get('/users/:name/enhanced-stats', async (request, reply) => {
+  const { name } = request.params;
+
+  const user = db.prepare('SELECT id FROM users WHERE name = ?').get(name);
+  if (!user) return reply.status(404).send({ error: 'Utilisateur introuvable' });
+
+  const uid = user.id;
+
+  // Basic stats
+  const wins = db.prepare(`
+    SELECT COUNT(*) AS c FROM games
+    WHERE ((fp_id = ? AND fp_score > sp_score) OR (sp_id = ? AND sp_score > fp_score))
+      AND fp_id != sp_id
+  `).get(uid, uid).c;
+
+  const losses = db.prepare(`
+    SELECT COUNT(*) AS c FROM games
+    WHERE ((fp_id = ? AND fp_score < sp_score) OR (sp_id = ? AND sp_score < fp_score))
+      AND fp_id != sp_id
+  `).get(uid, uid).c;
+
+  const total = db.prepare(`
+    SELECT COUNT(*) AS c FROM games
+    WHERE (fp_id = ? OR sp_id = ?)
+      AND fp_id != sp_id
+  `).get(uid, uid).c;
+
+  const winrate = total ? Math.round((wins / total) * 100) : 0;
+
+  // Enhanced stats
+  const allGames = db.prepare(`
+    SELECT 
+      CASE WHEN fp_id = ? THEN fp_score ELSE sp_score END as my_score,
+      CASE WHEN fp_id = ? THEN sp_score ELSE fp_score END as opp_score,
+      date,
+      CASE WHEN (fp_id = ? AND fp_score > sp_score) OR (sp_id = ? AND sp_score > fp_score) THEN 1 ELSE 0 END as is_win
+    FROM games 
+    WHERE (fp_id = ? OR sp_id = ?) AND fp_id != sp_id
+    ORDER BY datetime(date) DESC
+  `).all(uid, uid, uid, uid, uid, uid);
+
+  let totalPointsScored = 0;
+  let totalPointsConceded = 0;
+  let bestScore = 0;
+  let worstScore = Infinity;
+  let currentStreak = 0;
+  let bestStreak = 0;
+  let worstStreak = 0;
+  let tempStreak = 0;
+
+  // Process games in chronological order (oldest first) for streak calculation
+  const gamesInOrder = [...allGames].reverse();
+  
+  gamesInOrder.forEach(game => {
+    const myScore = game.my_score;
+    const isWin = game.is_win;
+
+    totalPointsScored += myScore;
+    totalPointsConceded += game.opp_score;
+    bestScore = Math.max(bestScore, myScore);
+    worstScore = Math.min(worstScore, myScore);
+
+    if (isWin) {
+      tempStreak = tempStreak >= 0 ? tempStreak + 1 : 1;
+    } else {
+      tempStreak = tempStreak <= 0 ? tempStreak - 1 : -1;
+    }
+
+    if (tempStreak > 0) {
+      bestStreak = Math.max(bestStreak, tempStreak);
+    } else if (tempStreak < 0) {
+      worstStreak = Math.min(worstStreak, tempStreak);
+    }
+  });
+
+  currentStreak = tempStreak;
+  const averageScore = total > 0 ? totalPointsScored / total : 0;
+  const pointsRatio = totalPointsScored + totalPointsConceded > 0 ? 
+    (totalPointsScored / (totalPointsScored + totalPointsConceded)) * 100 : 0;
+
+  // Recent performance (last 10 games)
+  const recentGames = allGames.slice(0, 10);
+  const recentWins = recentGames.filter(g => g.is_win).length;
+  const recentWinRate = recentGames.length > 0 ? (recentWins / recentGames.length) * 100 : 0;
+  const recentAvgScore = recentGames.length > 0 ? 
+    recentGames.reduce((sum, g) => sum + g.my_score, 0) / recentGames.length : 0;
+
+  return {
+    basic: { name, wins, losses, total, winrate },
+    enhanced: {
+      totalPointsScored,
+      totalPointsConceded,
+      pointsRatio: Math.round(pointsRatio * 100) / 100,
+      averageScore: Math.round(averageScore * 100) / 100,
+      bestScore,
+      worstScore: worstScore === Infinity ? 0 : worstScore,
+      currentStreak,
+      bestStreak,
+      worstStreak,
+      recentWinRate: Math.round(recentWinRate * 100) / 100,
+      recentAvgScore: Math.round(recentAvgScore * 100) / 100
+    }
+  };
 });
 
 // Historique de match d’un user par nom

@@ -1,8 +1,0 @@
-
-//lourd pour rien
-node_modules
-//fichier de log cree par nmp en cas d'erreur
-npm-debug.log
-//code compile, genere dans l'image, recompile dans l'image
-dist
-.env

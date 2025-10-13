@@ -60,7 +60,7 @@ function registerGoogleAuthRoutes(fastify) {
 		//si l'user ne veux plus utiliser l'authentification google
 		if (request.query.error) {
 			console.warn("Connexion refusée par l'utilisateur");
-			return reply.redirect('http://localhost:8080/profile?error=access_denied');
+			return reply.redirect('https://localhost:8443/profile?error=access_denied');
 		}
 		const code = request.query.code; //recuperation du code envoye dans l'url par google
 		//si le code n'est pas la, renvoie d'une erreur
@@ -123,12 +123,19 @@ function registerGoogleAuthRoutes(fastify) {
 					throw (err);
 				}
 			}
+
+			if (user.twofa_enabled) {
+				const twofaToken = fastify.jwt.sign({ uid: user.id, stage: '2fa' }, { expiresIn: '5m' });
+				const redirectUrl = `https://localhost:8443/profile?twofa_required=true&twofa_token=${encodeURIComponent(twofaToken)}&username=${encodeURIComponent(username)}&name=${encodeURIComponent(user.name || username)}`;
+				return reply.redirect(redirectUrl);
+			}
+
 			const token = fastify.jwt.sign({
 				id: user.id,
 				username: user.username,
 				mustChangePassword: firstTime
 			});
-			const redirectUrl = `http://localhost:8080/profile?token=${token}&username=${encodeURIComponent(username)}&firstTime=${firstTime}`;
+			const redirectUrl = `https://localhost:8443/profile?token=${token}&username=${encodeURIComponent(username)}&firstTime=${firstTime}`;
 			return reply.redirect(redirectUrl);
 
 			//redirection vers le front port 8080, ajout du token et du nom pour que le front end le stock dans local storage

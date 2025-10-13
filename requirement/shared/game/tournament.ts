@@ -1,17 +1,17 @@
 // requirement/frontend/handlers/game/tournament.ts
 
-export interface Player {
+export type Player = {
   id: number;
   display: string;
-}
+};
 
-interface Match {
+export type Match = {
   p1: Player;
   p2: Player;
   played: boolean;
-  s1?: number;
-  s2?: number;
-}
+  s1: number | null;
+  s2: number | null;
+};
 
 export class Tournament {
   private players: Player[] = [];
@@ -31,7 +31,15 @@ export class Tournament {
     this.matches = [];
     for (let i = 0; i < this.players.length; i++) {
       for (let j = i + 1; j < this.players.length; j++) {
-        this.matches.push({ p1: this.players[i], p2: this.players[j], played: false });
+        const p1 = this.players[i];
+        const p2 = this.players[j];
+        this.matches.push({
+          p1,
+          p2,
+          played: false,
+          s1: null,
+          s2: null
+        });
       }
     }
     this.currentIndex = 0;
@@ -58,15 +66,15 @@ export class Tournament {
     match.s1 = s1;
     match.s2 = s2;
 
-    if (s1 > s2) {
-      this.standings.set(p1Id, (this.standings.get(p1Id) || 0) + 3);
-    } else if (s2 > s1) {
-      this.standings.set(p2Id, (this.standings.get(p2Id) || 0) + 3);
-    } else {
-      this.standings.set(p1Id, (this.standings.get(p1Id) || 0) + 1);
-      this.standings.set(p2Id, (this.standings.get(p2Id) || 0) + 1);
+    const diff = Math.abs(s1 - s2);
+    if (diff === 0) {
+      console.warn("[Tournament] Unexpected draw detected:", { p1Id, p2Id, s1, s2 });
+      return;
     }
+    const winnerId = s1 > s2 ? p1Id : p2Id;
+    this.standings.set(winnerId, (this.standings.get(winnerId) || 0) + diff);
   }
+
 
   getStandings() {
     return Array.from(this.standings.entries())

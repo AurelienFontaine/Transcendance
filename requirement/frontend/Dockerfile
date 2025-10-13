@@ -1,23 +1,34 @@
-FROM node:22-alpine3.21
+# Étape 1 : Build avec Node
+FROM node:22-alpine3.20 AS builder
 
-# Créer le dossier de travail
-WORKDIR /app/frontend
+WORKDIR /app
 
-# Copier le HTML et le TS
-COPY ./frontend .
-COPY ./shared ./handlers
-RUN apk --no-cache add curl
-
-# Installer les dependences dans package.json
+# Installer dépendances frontend
+COPY frontend/package*.json ./
 RUN npm install
-RUN npm install @tailwindcss/vite
+RUN npm install --save-dev esbuild
 
-RUN npm run build
-# compiler Tailwind CSS (src/styles.css → src/dist/styles.css)
-RUN npx tailwindcss -i src/styles.css -o dist/styles.css --minify
+# Copier sources et handlers
+COPY frontend .
+COPY shared ./handlers
 
-# Exposer le port 8080
-EXPOSE 8080
+# Compiler TypeScript et Tailwind
+RUN npx esbuild src/main.ts --bundle --outfile=dist/main.js --minify --sourcemap
+RUN npx tailwindcss -i src/input.css -o dist/output.css --minify
+RUN cp index.html dist
 
-# Lancer un serveur sur /app
-CMD ["npx", "vite", "preview", "--host", "0.0.0.0", "--port", "8080"]
+# Étape 2 : Nginx
+FROM nginx:1.27-alpine
+
+# Copier le build depuis builder
+COPY --from=builder /app/dist /usr/share/nginx/html
+
+# Copier le nginx.conf complet
+COPY frontend/nginx.conf /etc/nginx/nginx.conf
+
+# Copier certificats
+COPY frontend/certs /etc/nginx/certs
+
+EXPOSE 8080 443
+
+CMD ["nginx", "-g", "daemon off;"]

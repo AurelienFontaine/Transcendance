@@ -1,40 +1,23 @@
 {
-	"_com0": "fichier de config principal pour node.js, contient les informations necessaire pour decrire, configurer, installer et executer le projet",
-
-	"_com1": "personnalise les characteristiques pour un eventuel affichage ou partage",
-  "name": "frontend",
-  "private": true,
-  "version": "1.0.0",
-  "description": "Node.js on Docker",
-  "author": "First Last <first.last@example.com>",
-  "main": "main.js",
-  "type": "module",
-
-	"_com2" : "scripts d'automatisation du projet",
+  "name": "frontend_container",
   "scripts": {
-	"dev": "vite",
-	"build": "vite build",
-	"preview": "vite preview --port 8080",
-    "build-css": "tailwindcss -i src/styles.css -o src/dist/styles.css --minify",
-	"build-ts": "tsc",
-	"build-all": "npm run build-css && npm run build-ts && npm run build"
-   },
-
-	"_com3": "install les dependance/outils necessaires a l'execution du site",
-
-  "dependencies": {
-    "autoprefixer": "^10.4.13",
-    "postcss": "^8.3.0",
-    "p5": "^2.0.3",
-    "tailwindcss": "^3.4.1",
-    "ws": "^8.18.3"
+    "prebuild": "mkdir -p handlers && cp -r ../shared/* handlers/",
+    "build:ts": "tsc",
+    "build:css": "tailwindcss -i src/input.css -o dist/output.css --minify",
+    "build": "npm run prebuild && npm run build:ts && npm run build:css",
+    "dev": "npm run prebuild && tailwindcss -i src/input.css -o dist/output.css --watch"
   },
-
-	"_com4": "install les dependance/outils necessaires a la compilation des fichiers",
-  
+  "dependencies": {
+    "daisyui": "^4.0.0",
+    "p5": "^1.6.0",
+    "chart.js": "^4.4.0",
+    "date-fns": "^2.30.0"
+  },
   "devDependencies": {
-    "typescript": "^5.8.3",
-	  "vite": "^7.0.4",
-    "@types/p5": "^1.7.6"
+    "typescript": "^5.3.0",
+    "@types/p5": "^1.6.1",
+    "tailwindcss": "^3.4.0",
+    "postcss": "^8.4.31",
+    "autoprefixer": "^10.4.16"
   }
 }

@@ -116,19 +116,30 @@ async function avatar(fastify, options) { // fonction multi route a exporter
 		const userId = request.user.id;
 
 		// Recuperation du fichier envoye
-		const data = await request.file();
+		const data = await request.file({limits: {fileSize: 5 * 1024 *1024}}); //limite les images a 5 Mo
 		if (!data)
-			return (reply.status(400).send({ error: "No file uploaded" }));
+			return (reply.status(400).send({ error: "No file uploaded or file too large (5Mo max)" }));
 
-		if (!data.mimetype.startsWith("image/")) //On verifie que le fichier est une image -> image/jpg image/png
-			return (reply.status(400).send({ error: "Invalid file type" }));
+		const allowedMimes = ["image/jpeg", "image/png", "image/jpg"]; //Verif du type du fichier (application/pdf est un exemple ou /image/png)
+		if (!allowedMimes.includes(data.mimetype))
+			return (reply.status(400).send({ error: "Invalid file type (image/jpg, image/png, image/jpeg only)" }));
+
+		const allowedExt = [".jpeg", ".png", ".jpg"]; //Verif de l'extension du fichier
+		const extension = path.extname(data.filename).toLowerCase();
+		if (!allowedExt.includes(extension))
+			return (reply.status(400).send({ error: "Invalid file extension (only .png .jpg .jpeg) "}));
+
 		// On renomme le fichier au nom de l'user pour eviter les doublons
-		const extension = path.extname(data.filename); //.png .jpg...
-		const newFilename = `avatar_${userId}${extension}`; //l'image sera maintenant idUser.extension -> 1.png / 1.jpg
-		const filePath = path.join(__dirname, "..", "..", "data", "imgs", newFilename);
+		const newFilename = `avatar_${userId}${extension}`; //l'image sera maintenant avatar_idUser.extension -> avatar_1.png / avatar_1.jpg
+		// Securiser le path du nouveau fichier
+		const filePath = path.join(__dirname, "..", "..", "data", "imgs", newFilename); //chemin cible
+		const safePath = path.resolve(filePath); //normer le chemin -> par exemple /app/routes/user_management/../../../etc/password devient /etc/password
+		const baseDir = path.resolve(path.join(__dirname, "..", "..", "data", "imgs")); //-> /app/routes/user_management/../../data/imgs devient /app/data/imgs
+		if (!safePath.startsWith(baseDir)) //On check que le fichier est bien dans le bon dossier
+			return (reply.status(400).send({ error: "Invalid file path" }));
 		
-		await pipeline(data.file, fs.createWriteStream(filePath)); //creer un fichier et redirige le flux data.file dans ce dernier (pump copie, createWriteStream creer le fichier)
-		
+		await pipeline(data.file, fs.createWriteStream(filePath, { mode: 0o644 })); //creer un fichier (non executable) et redirige le flux data.file dans ce dernier (pump copie, createWriteStream creer le fichier)
+		await fs.promises.chmod(filePath, 0o644); //forcer chmod pour Owner ReadWrite ; Group Read ; Other Read
 		const db = fastify.db;
 		db.prepare("UPDATE users SET avatar = ? WHERE id = ?").run(newFilename, userId);
 		return { success: true, avatar: newFilename };

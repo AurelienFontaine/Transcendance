@@ -99,7 +99,9 @@ async function auth(fastify, options) {
                         success: { type: 'boolean' },
                         message: { type: 'string' },
                         token: { type: 'string' },
-                        username: { type: 'string'}
+                        username: { type: 'string'},
+						twofa_required: { type: 'boolean' },
+    					twofa_token:    { type: 'string' }
                     }
                 },
                 400: { //erreur auto (mdp trop court... c'est fastify qui gere)
@@ -128,9 +130,40 @@ async function auth(fastify, options) {
             return reply.status(401).send({ error: 'Mot de passe incorrect' });
 		}
         
+		// 2FA actif
+		if (user.twofa_enabled) {
+			const twofa_token = fastify.jwt.sign(
+				{ uid: user.id, stage: '2fa' },
+				{ expiresIn: '5m' }
+			);
+			return {
+				success: true,
+				message: '2FA requise',
+				twofa_required: true,
+				twofa_token,
+				username: user.username
+			};
+		}
+
         const token = fastify.jwt.sign({ id: user.id, name: user.name });
-        return { success: true, message: 'Connexion reussie', token , username: user.username}; //200
+
+        console.log("Utilisateur connecté :", user.id, user.count); // debug http://localhost:3000/debug/online-users
+
+		return { success: true, message: 'Connexion reussie', token , username: user.username}; //200
     });
+
+	//mettre a jour la liste des utilisateurs connectés
+	fastify.post('/logout', { preHandler: [fastify.authenticate] }, async (request, reply) => {
+		console.log("Logout appelé avec user:", request.user);
+		const userId = request.user.id;
+		const count = fastify.onlineUsers.get(userId) || 0; //nbr session ouverte pqr user
+		if (count <= 1) {
+			fastify.onlineUsers.delete(userId); //derniere session = enleve le compteur
+		}else {
+			fastify.onlineUsers.set(userId, count - 1); //decremente compteur
+		}
+		return { success: true };
+	});
 
 }
     

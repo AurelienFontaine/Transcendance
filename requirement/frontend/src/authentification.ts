@@ -1,230 +1,380 @@
-import { navigate, apiBase } from "./utils";
-
+import { apiBase } from "./utils";
+import { initSocket, closeSocket } from '../handlers/friends-handler';
+import { t } from '../handlers/language';
 import * as userM from "./user_management";
-
+import { routerRef } from './main';
+import * as main from '../src/main';
 const backendUrl = `${apiBase()}`;
+import { notify } from '../handlers/notify';
 
-function clearSessionStorage() {
-  localStorage.removeItem("token");
-  localStorage.removeItem("id");
-  localStorage.removeItem("name");
-  localStorage.removeItem("username");
-}
 
 export async function createUser(event: Event) {
-  
-  event.preventDefault(); //empeche le rechargement de la page
-  //recuperation des champs du formulaire
-  const nameInput = document.getElementById("registerName") as HTMLInputElement | null;
-  if (!nameInput) return alert("Champ nom introuvable");
-  const name = nameInput.value;
-  const emailInput = document.getElementById("registerEmail") as HTMLInputElement | null;
-  if (!emailInput) return alert("Champ email introuvable");
-  const email = emailInput.value;
-  const passwordInput = document.getElementById("registerPassword") as HTMLInputElement | null;
-  if (!passwordInput) return alert("Champ mot de passe introuvable");
-  const password = passwordInput.value;
+	event.preventDefault();
+	
+	const nameInput = document.getElementById("registerName") as HTMLInputElement | null;
+	if (!nameInput) return notify(t('auth.errors.missingField', { field: t('auth.fields.name') }), { type: 'error' });
+	const name = nameInput.value;
 
-  const backendUrl = `${apiBase()}`;
+	const emailInput = document.getElementById("registerEmail") as HTMLInputElement | null;
+	if (!emailInput) return notify(t('auth.errors.missingField', { field: t('auth.fields.email') }), { type: 'error' });
+	const email = emailInput.value;
 
-  const response = await fetch(`${backendUrl}/register`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({name, email, password}),
-  });
- 
-  const data = await response.json();
+	const passwordInput = document.getElementById("registerPassword") as HTMLInputElement | null;
+	if (!passwordInput) return  notify(t('auth.errors.missingField', { field: t('auth.fields.password') }), { type: 'error' });
+	const password = passwordInput.value;
 
-  if (data.token) { //gestion du log cote client
-    localStorage.setItem('token', data.token);
-    localStorage.setItem('username', data.username);
-    localStorage.setItem('name', data.name);
-    localStorage.setItem('id', String(data.id));
-	navigate("/profile");
-  }
-  else {
-    alert(JSON.stringify(data));
-  }
+	const response = await fetch(`${backendUrl}/register`, {
+		method: "POST",
+		headers: {
+			"Content-Type": "application/json",
+		},
+		body: JSON.stringify({name, email, password}),
+	});
+	
+	const data = await response.json();
+
+	if (data.token) {
+		localStorage.setItem('token', data.token);
+		localStorage.setItem('username', data.username);
+		localStorage.setItem('name', data.name);
+		localStorage.setItem('id', String(data.id));
+		initSocket(data.token);
+	}
+	else {
+		const fallback = t('auth.errors.unexpectedResponse');
+		let message: string;
+		if (data && typeof data === 'object' && 'error' in data && typeof data.error === 'string' && data.error.trim()) {
+			message = data.error;
+		} else {
+			message = response.statusText || JSON.stringify(data) || fallback;
+		}
+		notify(t('alerts.serverMessage', { message }), { type: 'error' });
+	}
 }
+
+type TwoFAPromptResult = { mode: 'otp' | 'recovery'; value: string } | null;
+
+export async function askTwoFACode(): Promise<TwoFAPromptResult> {
+	const overlay = document.getElementById('twofaPromptOverlay');
+	const modeSelect = document.getElementById('twofaPromptMode') as HTMLSelectElement | null;
+	const valueInput = document.getElementById('twofaPromptValue') as HTMLInputElement | null;
+	const cancelBtn = document.getElementById('twofaPromptCancel');
+	const submitBtn = document.getElementById('twofaPromptSubmit');
+
+	if (!overlay || !modeSelect || !valueInput || !cancelBtn || !submitBtn) {
+		console.warn('2FA UI missing elements.');
+		return null;
+	}
+
+	// Show 2FA prompt overlay
+	overlay.classList.remove('hidden');
+	overlay.classList.add('flex');
+	valueInput.value = '';
+	requestAnimationFrame(() => valueInput.focus());
+
+	return new Promise((resolve) => {
+		const onCancel = (evt: Event) => {
+			evt.preventDefault();
+			cleanup(null);
+		};
+
+		const onSubmit = (evt: Event) => {
+			evt.preventDefault();
+			const value = valueInput.value.trim();
+			if (!value) {
+				valueInput.focus();
+				return;
+			}
+			cleanup({ mode: modeSelect.value === 'recovery' ? 'recovery' : 'otp', value });
+		};
+
+		const onOverlayClick = (evt: MouseEvent) => {
+			if (evt.target === overlay) cleanup(null);
+		};
+
+		const onKeyDown = (evt: KeyboardEvent) => {
+		if (evt.key === 'Enter') {
+			evt.preventDefault();
+			onSubmit(evt);
+			return;
+		}
+		if (evt.key === 'Escape') {
+			evt.preventDefault();
+			onCancel(evt);
+		}
+		};
+
+	const cleanup = (result: TwoFAPromptResult) => {
+		overlay.classList.remove('flex');
+		overlay.classList.add('hidden');
+		cancelBtn.removeEventListener('click', onCancel);
+		submitBtn.removeEventListener('click', onSubmit);
+		valueInput.removeEventListener('keydown', onKeyDown);
+		overlay.removeEventListener('click', onOverlayClick);
+		resolve(result);
+	};
+
+		cancelBtn.addEventListener('click', onCancel);
+		submitBtn.addEventListener('click', onSubmit);
+		valueInput.addEventListener('keydown', onKeyDown);
+		overlay.addEventListener('click', onOverlayClick);
+	});
+}
+
+export async function completeTwoFaLogin(twofaToken: string): Promise<boolean> {
+	const promptResult = await askTwoFACode();
+
+	if (!promptResult) return false;
+	const payload: Record<string, string> = { twofa_token: twofaToken };
+	if (promptResult.mode === 'otp') payload.otp = promptResult.value;
+	else payload.recovery_code = promptResult.value;
+
+	const res = await fetch(`${backendUrl}/login/checkTwoFa`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify(payload),
+	});
+
+	const data = await res.json();
+	if (!res.ok) {
+		const errorMessage =
+			data && typeof data === 'object' && 'error' in data && typeof data.error === 'string' && data.error.trim()
+				? data.error
+				: t('auth.errors.twofaUnknown');
+		notify(t('auth.errors.twofa', { message: errorMessage }), { type: 'error' });
+		return false;
+	}
+
+	localStorage.setItem('token', data.token);
+	if (data.username) localStorage.setItem('username', data.username);
+	if (data.name) localStorage.setItem('name', data.name);
+	initSocket(data.token);
+
+	await main.refreshSession();
+	window.history.replaceState({}, '', '/profile');
+	if (routerRef) {
+		routerRef.resolveRoute(true);
+	} else {
+		window.dispatchEvent(new PopStateEvent('popstate'));
+	}
+	return true;
+}
+
 
 export async function loginUser(event: Event) {
-  event.preventDefault();
-  const nameInput = document.getElementById("loginName") as HTMLInputElement;
-  const passwordInput = document.getElementById("loginPassword") as HTMLInputElement;
-  const name = nameInput.value;
-  const password = passwordInput.value;
+	event.preventDefault();
 
-  const response = await fetch(`${backendUrl}/login`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ name, password }),
-  });
+	const nameInput = document.getElementById("loginName") as HTMLInputElement;
+	const passwordInput = document.getElementById("loginPassword") as HTMLInputElement;
+	const name = nameInput.value;
+	const password = passwordInput.value;
 
-  const data = await response.json();
+	const response = await fetch(`${backendUrl}/login`, {
+		method: "POST",
+		headers: {
+		"Content-Type": "application/json",
+		},
+		body: JSON.stringify({ name, password }),
+	});
 
-  if (response.ok && data.token) {
-    localStorage.setItem("token", data.token);
-    if (data.username) 
-      localStorage.setItem("username", data.username);
-    if (data.name) 
-      localStorage.setItem("name", data.name);
-    if (data.id)
-      localStorage.setItem("id", String(data.id));
-    navigate("/profile"); // refresh l'UI
-  } else {
-    alert("Erreur : " + (data.error || "Connexion échouée"));
-  }
+	const data = await response.json();
+	if (response.ok && data.twofa_required && data.twofa_token) {
+		if (data.username) localStorage.setItem('username', data.username);
+		if (data.name) localStorage.setItem('name', data.name);
+		await completeTwoFaLogin(data.twofa_token);
+
+	} else if (response.ok && data.token) {
+		localStorage.setItem("token", data.token);
+
+		if (data.token)
+			initSocket(data.token);		
+		await main.refreshSession();
+	} else {
+		console.log('loginUser: Login failed.');
+		const message =
+			data && typeof data === 'object' && 'error' in data && typeof data.error === 'string' && data.error.trim()
+				? data.error
+				: t('auth.errors.loginFallback');
+		notify(t('auth.errors.loginFailed', { message }), { type: 'error' });
+	}
 }
 
-
-
 export function updateUIForLoggedInUser() {  
-  const loginForm = document.getElementById('loginForm');
-  if (loginForm)
-    loginForm.style.display = 'none';
+	const loginForm = document.getElementById('loginForm');
+	const registerForm = document.getElementById('registerForm');
+	const logoutBtn = document.getElementById('logoutButton');
+	const googleBtn = document.getElementById('googleLoginButton');
+	const chatLink = document.getElementById('chatLink');
+	const avatarUser = document.getElementById('currentAvatar');
+	const chooseAvatar = document.getElementById('chooseAvatar');
+	const uploadAvatarForm = document.getElementById('uploadAvatarForm');
 
-  const registerForm = document.getElementById('registerForm');
-  if (registerForm)
-    registerForm.style.display = 'none';
+	if (loginForm)
+		loginForm.classList.add('hidden');
+	if (registerForm)
+		registerForm.classList.add('hidden');
 
-  const logoutBtn = document.getElementById('logoutButton');
-  if (logoutBtn)
-    logoutBtn.style.display = 'block';
+	if (logoutBtn)
+		logoutBtn.classList.remove('hidden');
 
-  const googleBtn = document.getElementById('googleLoginButton');
-  if (googleBtn)
-    googleBtn.style.display = 'none';
+	if (googleBtn)
+		googleBtn.classList.add('hidden');
 
-  const chatLink = document.getElementById('chatLink');
 	if (chatLink)
-    chatLink.style.display = 'inline-block';
+		chatLink.classList.add('inline-block');
+    // chatLink.style.display = 'inline-block';
 
-  const avatarUser = document.getElementById('currentAvatar');
-  if (avatarUser)
-    avatarUser.style.display = "block";
-
-  const chooseAvatar = document.getElementById('chooseAvatar');
-  if (chooseAvatar)
-    chooseAvatar.style.display = "block";
-
-  const uploadAvatarForm = document.getElementById('uploadAvatarForm');
-  if (uploadAvatarForm)
-    uploadAvatarForm.style.display = "block";
+	if (avatarUser)
+		avatarUser.classList.remove('hidden');
+	if (chooseAvatar)
+		chooseAvatar.classList.remove('hidden');
+	if (uploadAvatarForm)
+		uploadAvatarForm.classList.remove('hidden');
 
 	const username = localStorage.getItem('username');
 	const userInfo = document.getElementById('userInfo');
 	const currentUsername = document.getElementById('currentUsername');
 	const changeForm = document.getElementById('changeUsernameForm');
-  const passwordChangeBtn = document.getElementById('changePasswordBtn');
-  userM.loadAvatar();
+	const passwordChangeBtn = document.getElementById('changePasswordBtn');
+	userM.loadAvatar();
 	if (username && userInfo && currentUsername && changeForm && passwordChangeBtn) {
-		userInfo.style.display = 'block';
-		changeForm.style.display = 'block';
-    // passwordForm.style.display = 'block';
-    passwordChangeBtn.style.display = 'block';
+		userInfo.classList.remove('hidden');
+		changeForm.classList.remove('hidden');
+    passwordChangeBtn.classList.remove('hidden');
 		currentUsername.textContent = username;
-		// Handle le changement de username
-		changeForm.addEventListener('submit', (e) => {
-		  e.preventDefault();
-		  userM.changeUsername(e);
-		});
 	}
 }
 
 export async function checkIfLoggedIn() {
-  await tokenCheck(); //verif la validite du token en back
-  const token = localStorage.getItem('token');
-  const username = localStorage.getItem('username');
-  if (token && username)
-    updateUIForLoggedInUser();
+	await tokenCheck();
+	const token = localStorage.getItem('token');
+	const username = localStorage.getItem('username');
+	if (token && username){
+		updateUIForLoggedInUser();
+		initSocket(token);
+	}
 }
 
 export function updateUIForLoggedOutUser() {
 	const userInfo = document.getElementById('userInfo');
 	if (userInfo)
-		userInfo.style.display = 'none';
+		userInfo.classList.add('hidden');
 
   const changeForm = document.getElementById('changeUsernameForm');
   if (changeForm)
-		changeForm.style.display = 'none';
+		changeForm.classList.add('hidden');
 
   const passwordChangeBtn = document.getElementById('changePasswordBtn');
   if (passwordChangeBtn)
-    passwordChangeBtn.style.display = 'none';
+    passwordChangeBtn.classList.add('hidden');
 
   const logoutBtn = document.getElementById('logoutButton');
   if (logoutBtn)
-    logoutBtn.style.display = 'none';
+    logoutBtn.classList.add('hidden');
 
   const loginForm = document.getElementById('loginForm');
   if (loginForm)
-    loginForm.style.display = 'block';
+    loginForm.classList.remove('hidden');
 
   const registerForm = document.getElementById('registerForm');
   if (registerForm)
-    registerForm.style.display = 'block';
+    registerForm.classList.remove('hidden');
 
   const googleBtn = document.getElementById('googleLoginButton');
   if (googleBtn)
-    googleBtn.style.display = 'block';
+    googleBtn.classList.remove('hidden');
 
   const chatLink = document.getElementById('chatLink');
 	if (chatLink)
-    chatLink.style.display = 'none';
+    chatLink.classList.add('hidden');
 
    const avatarUser = document.getElementById('currentAvatar');
   if (avatarUser)
-    avatarUser.style.display = "none";
+    avatarUser.classList.add('hidden');
 
   const chooseAvatar = document.getElementById('chooseAvatar');
   if (chooseAvatar)
-    chooseAvatar.style.display = "none";
+    chooseAvatar.classList.add('hidden');
 
   const uploadAvatarForm = document.getElementById('uploadAvatarForm');
   if (uploadAvatarForm)
-    uploadAvatarForm.style.display = "none";
+    uploadAvatarForm.classList.add('hidden');
 }
 
-export function logoutUser(e?: Event) {
+export async function logoutUser(e?: Event) {
   if (e) e.preventDefault();
-  clearSessionStorage();
-  navigate('/profile');
-  window.location.pathname === '/profile' && (window.location.reload());
+  const token = localStorage.getItem('token');
 
-  clearSessionStorage();
+  if (token){ 
+    await fetch(`${backendUrl}/logout`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+	closeSocket();
+  }
 
-  // 2) Nettoyage immédiat de l’UI si on est déjà sur /profile
+  main.clearSessionStorage();
+
   const historyDiv  = document.getElementById('historyContent');
   const showWelcome = document.getElementById('showWelcome');
   const logoutBtn   = document.getElementById('logoutButton');
-  if (historyDiv)  historyDiv.innerHTML = `<em class="text-gray-400">Connectez-vous pour voir votre historique.</em>`;
+  if (historyDiv)  historyDiv.innerHTML = `<em class="text-gray-400">${t('profile.history.loginPrompt')}</em>`;
   if (showWelcome) { showWelcome.classList.add('hidden'); showWelcome.textContent = ''; }
   if (logoutBtn)   logoutBtn.classList.add('hidden');
 
-  // 3) Forcer un re-render même si on reste sur /profile
-  window.history.replaceState({}, '', '/profile');
-  window.dispatchEvent(new PopStateEvent('popstate'));
+  // Force refresh of profile page if we're on it (SPA way)
+  if (window.location.pathname === '/profile') {
+    if (main.routerRef) {
+      main.routerRef.navigateTo('/profile', true);
+    }
+  } else {
+    window.history.replaceState({}, '', '/profile');
+    window.dispatchEvent(new PopStateEvent('popstate'));
+  }
  }
 
 export async function tokenCheck() {
-  const token = localStorage.getItem('token');
-  if (token) {
-    try {
-      const response = await fetch (`${backendUrl}/me`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-      if (!response.ok)
-        throw new Error('Token invalide');
-    } catch (err) {
-      console.warn('Token expire ou invalide.');
-      logoutUser();
-    }
-  }
+	const token = localStorage.getItem('token');
+	if (token) {
+		try {
+			const response = await fetch (`${backendUrl}/me`, {
+				method: 'GET',
+				headers: {
+				'Authorization': `Bearer ${token}`,
+				},
+			});
+			if (!response.ok)
+				throw new Error('Token invalide');
+		} catch (err) {
+			console.warn('Token expire ou invalide.');
+			logoutUser();
+		}
+	}
+}
+
+let authLoading = false;
+
+export async function initAuth() {
+	if (authLoading) return;
+	authLoading = true;
+	await new Promise(res => setTimeout(res, 150));
+
+	const token = localStorage.getItem('token');
+	if (!token) {
+		//console.log('auth init: no token');
+		authLoading = false;
+		return;
+	}
+
+	try {
+		const res = await fetch('/api/me', {
+			headers: { Authorization: `Bearer ${token}` },
+		});
+		if (!res.ok) throw new Error('Invalid token');
+	} catch (err) {
+		console.error('Auth init failed:', err);
+		localStorage.removeItem('token');
+	} finally {
+		authLoading = false;
+	}
 }

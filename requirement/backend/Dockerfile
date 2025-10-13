@@ -14,7 +14,7 @@ COPY . .
 
 RUN npm install fastify @fastify/cors better-sqlite3 @fastify/jwt @fastify/multipart@7
 
-RUN npm install bcrypt
+RUN npm install bcrypt speakeasy qrcode
 
 #auth google, lib http javascript
 #permet de faire des requetes http en java pour node.js mais aussi pour le navigateur

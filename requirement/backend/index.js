@@ -1,5 +1,17 @@
 const Fastify = require('fastify');
-const fastify = Fastify({ logger: true}) //Utiliser serveur fastify en logs automatique auquel on va ajouter des routes des plugins etc
+
+const fs = require('fs'); //file System -> lire/ecrire des fichiers
+const path = require('path'); //gerer proprement les chemins de fichiers (path.join gere automatiquement les path en fonction des os)
+const { encrypt, decrypt } = require('./routes/auth/two-fa-encryption-backend.js');
+
+
+const fastify = Fastify({
+    logger: true,
+    https: {
+        key: fs.readFileSync(path.join(__dirname, 'certs/key.pem')),
+        cert: fs.readFileSync(path.join(__dirname, 'certs/cert.pem'))
+    }
+}); //Utiliser serveur fastify en logs automatique auquel on va ajouter des routes des plugins etc
 
 // Importer les plugins
 const multipart = require('@fastify/multipart'); //pouvoir upload des fichiers (images, pdf...)
@@ -16,6 +28,9 @@ fastify.register(cors, { //autorise les requetes venant de l'origine (c'est un t
     origin: '*'
 });
 
+//websocket pas un plugin
+const webSocket = require ('ws');
+
 // Importer les librairies
 const axios = require('axios'); //requetes http depuis le front
 
@@ -27,7 +42,19 @@ const crypto = require('crypto'); //generation caracteres aleatoire
 const db = require('./routes/database/database.js'); //db est un objet donc decorate()
 fastify.decorate('db', db);
 
-// Importer nos plugins(fonctions multi routes) fichiers perso
+const {onlineUsers, socketUsers} = require('./routes/user-managment/online-users-backend.js')
+fastify.decorate('onlineUsers', onlineUsers);
+fastify.decorate('socketUsers', socketUsers);
+
+//a retirer utlise pour le debugage http://localhost:3000/debug/maps
+fastify.get('/debug/maps', async () => {
+  return {
+    onlineUsers: Array.from(fastify.onlineUsers.entries()),
+    socketUsers: Array.from(fastify.socketUsers.entries()).map(([id, sockets]) => [id, sockets.size])
+  };
+});
+
+// Importer nos plugins(fonctions multi routes) fichiers perso 
 const auth = require ('./routes/auth/authentification.js'); //fonction multi route donc register
 fastify.register(auth);
 
@@ -40,12 +67,27 @@ fastify.register(avatar);
 const game = require('./routes/game/game.js');
 fastify.register(game);
 
+const utils = require('./routes/utils/utils.js');
+fastify.register(utils);
+
+const { twoFASetup, verifyTwoFASetup } = require('./routes/auth/2fa-setup-backend.js');
+fastify.register(twoFASetup);
+fastify.register(verifyTwoFASetup);
+const twoFARecovery = require('./routes/auth/2fa-recovery-backend.js');
+fastify.register(twoFARecovery);
+const twoFAStop = require('./routes/auth/2fa-stop-backend.js');
+fastify.register(twoFAStop);
+const checkTwoFa = require('./routes/auth/2fa-check-backend.js');
+fastify.register(checkTwoFa);
+
 // Import de fonction simple
 const registerGoogleAuthRoutes = require('./routes/auth/google-auth.js');
 registerGoogleAuthRoutes(fastify);
 
 const friendsBackend = require('./routes/user-managment/friends-backend');
 
+const onlineWebsocketBackend = require('./routes/user-managment/online-websocket-backend.js');
+fastify.register(onlineWebsocketBackend);
 
 async function start(){
     
@@ -58,6 +100,11 @@ async function start(){
 		return (hashed);
     });
 
+	fastify.decorate('encrypt', encrypt);
+	fastify.decorate('decrypt', decrypt);
+	fastify.decorate('twoFATempSecrets', new Map());
+
+
     // Hook d'authentification cherchant a verifier si un user est veritablement connecte et que son token est valide. 
     fastify.decorate("authenticate", async function (request, reply) {
         try {
@@ -68,11 +115,11 @@ async function start(){
     });
 
     friendsBackend(fastify);
-    
+
     //Demarrer le serveur
     try {
-        await fastify.listen({ port: 3000, host: '0.0.0.0' });
-        console.log('Server running at ${apiBase()}');
+        const address = await fastify.listen({ port: 3000, host: '0.0.0.0' });
+        console.log(`Server running at ${address}`); // la bonne ecriture est avec les ``
     } catch (err) {
         fastify.log.error(err);
         process.exit(1);

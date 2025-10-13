@@ -21,14 +21,22 @@ export type StateMessage = {
   paused: boolean;
 };
 
-export type ServerMessage = InputMessage | ResetMessage | StartMessage | PauseMessage | StateMessage | SettingsMessage;
+export type ServerMessage = InputMessage | ResetMessage | StartMessage | PauseMessage | StateMessage | SettingsMessage | TimerCompletedMessage | StartTimerMessage | GameResetMessage;
 
 export type GameState = {
-  ball: { x: number; y: number };
+  ball: { x: number; y: number; radius?: number };
   paddles: { p1: number; p2: number };
   score: { p1: number; p2: number };
   ballColor?: string;
   paddleColor?: string;
+  player1Name?: string;
+  player2Name?: string;
+  player1Controls?: string;
+  player2Controls?: string;
+  isPlayer1Current?: boolean;
+  isPlayer2Current?: boolean;
+  paddleHeight?: number;
+  gameOver?: boolean;
 };
 
 export type SettingsMessage = {
@@ -36,6 +44,21 @@ export type SettingsMessage = {
   speedPercent?: number;
   ballColor?: string;
   paddleColor?: string;
+  ballSize?: 'small' | 'normal' | 'large';
+  paddleSize?: 'small' | 'normal' | 'large';
+};
+
+export type TimerCompletedMessage = {
+  type: 'timerCompleted';
+};
+
+export type StartTimerMessage = {
+  type: 'startTimer';
+};
+
+export type GameResetMessage = {
+  type: 'gameReset';
+  roomId: string;
 };
 
 export type MatchResult = {

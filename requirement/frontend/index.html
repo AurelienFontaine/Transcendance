@@ -4,20 +4,138 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Pong SPA</title>
-  <script type="module" src="/src/main.ts" defer></script>
+  <!-- Suppress p5.js sensor warnings by blocking sensor APIs and intercepting console -->
+  <script>
+    (function() {
+      // Block device orientation/motion event listeners to prevent p5.js from using them
+      if (window.DeviceOrientationEvent) {
+        Object.defineProperty(window, 'DeviceOrientationEvent', {
+          value: undefined,
+          writable: false,
+          configurable: false
+        });
+      }
+      if (window.DeviceMotionEvent) {
+        Object.defineProperty(window, 'DeviceMotionEvent', {
+          value: undefined,
+          writable: false,
+          configurable: false
+        });
+      }
+      
+      // Intercept console.warn
+      const originalWarn = console.warn;
+      console.warn = function() {
+        const message = arguments[0]?.toString() || '';
+        if (message.includes('orientation sensor') || message.includes('motion sensor') || message.includes('deprecated')) {
+          return;
+        }
+        originalWarn.apply(console, arguments);
+      };
+      
+      // Intercept console.log
+      const originalLog = console.log;
+      console.log = function() {
+        const message = arguments[0]?.toString() || '';
+        if (message.includes('orientation sensor') || message.includes('motion sensor')) {
+          return;
+        }
+        originalLog.apply(console, arguments);
+      };
+    })();
+  </script>
+  <!-- <script type="module" src="/dist/main.js" defer></script> -->
+  <script type="module" src="main.js" defer></script>
+  <link rel="stylesheet" href="/output.css">
 
+</head>
+<script>
+	document.addEventListener('DOMContentLoaded', () => {
+		const root = document.documentElement;
+		const dropdown = document.querySelector('.dropdown.dropdown-end');
+		if (!dropdown) return;
+
+		const trigger = dropdown.querySelector('[role="button"][tabindex="0"]');
+		const menu = dropdown.querySelector('#themeMenu');
+		if (!menu) return;
+
+		const items = [...menu.querySelectorAll('a[data-set-theme]')];
+
+		// Restaure le thème + ARIA
+		let saved = null;
+		try { saved = localStorage.getItem('theme'); } catch {}
+		if (saved) root.setAttribute('data-theme', saved);
+		const current = saved || root.getAttribute('data-theme');
+		if (current) items.forEach(a => a.setAttribute('aria-checked', String(a.dataset.setTheme === current)));
+
+		// Entrée/Espace sur le "bouton" Theme -> focus 1er item (ouvre le dropdown via le focus interne)
+		if (trigger) {
+			trigger.addEventListener('keydown', (e) => {
+				if (e.key === 'Enter' || e.key === ' ') {
+					e.preventDefault();
+					items[0]?.focus();
+				}
+			});
+		}
+
+		// Clic/activation sur un item -> applique le thème + ARIA + persistance
+		menu.addEventListener('click', (e) => {
+			const a = e.target.closest('a[data-set-theme]');
+			if (!a) return;
+			e.preventDefault();
+			const t = a.dataset.setTheme;
+			root.setAttribute('data-theme', t);
+			try { localStorage.setItem('theme', t); } catch {}
+			items.forEach(el => el.setAttribute('aria-checked', String(el === a)));
+			trigger?.focus();
+		});
+
+		// Navigation clavier dans le menu
+		menu.addEventListener('keydown', (e) => {
+			const i = items.indexOf(document.activeElement);
+			if (e.key === 'ArrowDown') { e.preventDefault(); (items[i + 1] || items[0]).focus(); }
+			else if (e.key === 'ArrowUp') { e.preventDefault(); (items[i - 1] || items[items.length - 1]).focus(); }
+			else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); document.activeElement.click(); }
+			else if (e.key === 'Escape') { e.preventDefault(); trigger?.focus(); }
+		});
+	});
+</script>
 
  <!-- <script src="https://cdn.tailwindcss.com"></script> -->
- <link href="/src/styles.css" rel="stylesheet" />
-</head>
-<body class="bg-gray-900 text-white min-h-screen">
-	<nav class="w-full fixed top-0 left-0 z-50 bg-gray-800 px-6 py-4 flex justify-start items-center gap-6 shadow-md">
-		<a href="/" data-link class="hover:underline">Home</a>
-		<a href="/profile" data-link class="hover:underline">Profile</a>
-    <a href="/play" data-link class="hover:underline">Game</a>
-		<a href="/chat" data-link class="hover:underline">Chat</a>
-	 </nav>
-	<main id="app" class="pt-24 px-6">
+ <!-- <link href="/dist/styles.css" rel="stylesheet" /> -->
+<body class="bg-base-100 text-base-content min-h-screen flex flex-col pt-16">
+	<a id="skip-to-content" class="skip-link" href="#app" data-i18n="nav.skipToContent">Skip to main content</a>
+	<div id="sr-announcer" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
+	
+	<nav class="navbar bg-primary shadow-md fixed top-0 left-0 w-full z-50" aria-label="Main navigation" data-nav-primary>
+		<div class="navbar-start">
+			<ul class="menu menu-horizontal gap-4 px-1">
+					<li><a href="/" data-link class="btn btn-secondary hover:underline">Home</a></li>
+					<li><a href="/profile" data-link class="btn btn-secondary hover:underline">Profile</a></li>
+					<li><a href="/play" data-link class="btn btn-secondary hover:underline">Game</a></li>
+					<li><a href="/friends" data-link class="btn btn-secondary hover:underline">Friends</a></li>
+			</ul>
+		</div>
+		<div class="flex-none ml-auto flex items-center pr-2 gap-6">
+			<a href="/profile" data-link id="loginNavBtn" class="btn btn-accent whitespace-nowrap">Login/Logout</a>
+
+			<div class="menu menu-horizontal gap-4 px-1" role="group" aria-label="Change language" data-language-group>
+				<button type="button" data-language="en" class="btn btn-secondary">EN</button>
+				<button type="button" data-language="fr" class="btn btn-secondary">FR</button>
+				<button type="button" data-language="es" class="btn btn-secondary">ES</button>
+			</div>
+			<div class="dropdown dropdown-end">
+				<div tabindex="0" role="button" class="btn m-1">Theme</div>
+				<ul id="themeMenu" tabindex="0" role="menu" aria-label="Theme"
+					class="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-52">
+					<li><a href="#" data-set-theme="light"   role="menuitemradio" aria-checked="false">Light</a></li>
+					<li><a href="#" data-set-theme="dark"    role="menuitemradio" aria-checked="false">Dark</a></li>
+					<li><a href="#" data-set-theme="cupcake" role="menuitemradio" aria-checked="false">Cupcake</a></li>
+				</ul>
+			</div>
+		</div>
+	</nav>
+	<main id="app" class="px-6 bg-base-100 flex-grow" tabindex="-1" role="main">
     <!-- Views get rendered here -->
 	</main>
 </body>

@@ -5,7 +5,7 @@ services:
       context: .
       dockerfile: ./frontend/Dockerfile
     ports:
-      - "8080:8080"
+      - "8443:443"
     restart: unless-stopped
     depends_on:
       - backend
@@ -14,6 +14,9 @@ services:
       - transcendence
     env_file:
       - .env
+    volumes:
+    - ./frontend/src:/app/src
+    - ./frontend/certs:/etc/nginx/certs
 
   backend:
     container_name: backend_container
@@ -39,18 +42,6 @@ services:
       - backend
     networks:
       - transcendence
-  
-  chat:
-    container_name: chat_container
-    build:
-      context: ./chat
-    ports:
-      - "4000:4000"
-    networks:
-      - transcendence
-    env_file:
-      - .env
-    restart: unless-stopped
 
 networks:
   transcendence:

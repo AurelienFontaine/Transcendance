@@ -1,21 +1,28 @@
-import { GameState } from './types';
+import type { GameState } from './types';
 
 export class PongGame {
   width = 800;
   height = 600;
-  paddleHeight = 100;
+  paddleHeight = 67; // 1.5x smaller than original (100/1.5 ≈ 67)
 
   // Vitesse interne (modifiables)
   paddleSpeed = 5;
   ballSpeed = 5;
+  
+  // Taille configurable (Petit/Normal/Grand)
+  ballSize: 'small' | 'normal' | 'large' = 'normal';
+  paddleSize: 'small' | 'normal' | 'large' = 'normal';
 
   GameOver = false;
   Started = false;
   ballColor = "#FFFFFF";
   paddleColor = "#FFFFFF";
+  
+  // Callback for when a point is scored
+  onPointScored?: () => void;
 
   state: GameState = {
-    ball:    { x: this.width / 2, y: this.height / 2 },
+    ball:    { x: this.width / 2, y: this.height / 2, radius: this.getBallRadius() },
     paddles: { p1: this.height / 2, p2: this.height / 2 },
     score:   { p1: 0, p2: 0 },
   };
@@ -104,9 +111,11 @@ export class PongGame {
     if (this.state.ball.x < 0) {
       this.state.score.p2 += 1;
       this.resetBall();
+      if (this.onPointScored) this.onPointScored();
     } else if (this.state.ball.x > this.width) {
       this.state.score.p1 += 1;
       this.resetBall();
+      if (this.onPointScored) this.onPointScored();
     }
 
     // Fin de partie à 5
@@ -129,5 +138,47 @@ export class PongGame {
       x: Math.cos(angle) * direction,
       y: Math.sin(angle)
     };
+  }
+
+  /**
+   * Configure la taille de la balle
+   */
+  setBallSize(size: 'small' | 'normal' | 'large') {
+    this.ballSize = size;
+    // Appliquer la taille à la balle actuelle
+    const ballRadius = this.getBallRadius();
+    this.state.ball.radius = ballRadius;
+  }
+
+  /**
+   * Configure la taille des paddles
+   */
+  setPaddleSize(size: 'small' | 'normal' | 'large') {
+    this.paddleSize = size;
+    this.paddleHeight = this.getPaddleHeight();
+  }
+
+  /**
+   * Retourne le rayon de la balle selon la taille configurée
+   */
+  getBallRadius(): number {
+    switch (this.ballSize) {
+      case 'small': return 8;
+      case 'normal': return 12;
+      case 'large': return 16;
+      default: return 12;
+    }
+  }
+
+  /**
+   * Retourne la hauteur des paddles selon la taille configurée
+   */
+  getPaddleHeight(): number {
+    switch (this.paddleSize) {
+      case 'small': return 45; // ~67 * 0.67
+      case 'normal': return 67; // Taille par défaut (1.5x plus petit que l'original)
+      case 'large': return 90; // ~67 * 1.34
+      default: return 67;
+    }
   }
 }
