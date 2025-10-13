@@ -1,6 +1,16 @@
 # Transcendance
 
+
 Transcendance est un projet web complet de type "fullstack" développé dans le cadre du cursus 42. Il s'agit d'une plateforme de jeu en ligne inspirée du Pong, enrichie de fonctionnalités sociales avancées (amis, chat, avatars, tournois, 2FA, etc.).
+
+## Aperçu en images
+
+![Accueil](imgs/Screenshot%20from%202025-10-13%2015-54-00.png)
+![Connexion](imgs/Screenshot%20from%202025-10-13%2015-54-23.png)
+![Dashboard](imgs/Screenshot%20from%202025-10-13%2015-58-51.png)
+![Jeu Pong](imgs/Screenshot%20from%202025-10-13%2016-01-40.png)
+![Profil](imgs/Screenshot%20from%202025-10-13%2016-01-50.png)
+![Tournoi](imgs/Screenshot%20from%202025-10-13%2016-02-15.png)
 
 ## Objectif du projet
 
